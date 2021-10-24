@@ -3,7 +3,7 @@ const Credentials = require("../Credentials")
 
 module.exports = class Schedule {
 
-    async getSchedule() {
+    async getScheduleURL() {
         /* Initiate the Puppeteer browser */
         const browser = await puppeteer.launch();//{headless:false,slowMo:500});
         const page = await browser.newPage();
@@ -32,7 +32,7 @@ module.exports = class Schedule {
             return "NOURL";
         }).catch();
 
-        console.log(img_url);
         await browser.close();
+        return img_url;
     }
 }
