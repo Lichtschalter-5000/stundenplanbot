@@ -2,11 +2,17 @@
   "name": "stundenplanbot",
   "version": "0.0.0",
   "description": "Fetches the class schedule from DSB mobile, and tells you via discord to wake up just in time.",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "run": "node ./src/index"
   },
   "keywords": [],
   "author": "Dominik",
-  "license": "None for the moment"
+  "license": "None for the moment",
+  "dependencies": {
+    "make-fetch-happen": "^9.1.0",
+    "puppeteer": "^10.4.0",
+    "querystring": "^0.2.1"
+  }
 }
