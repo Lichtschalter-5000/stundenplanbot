@@ -1,0 +1,12 @@
+{
+  "name": "stundenplanbot",
+  "version": "0.0.0",
+  "description": "Fetches the class schedule from DSB mobile, and tells you via discord to wake up just in time.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Dominik",
+  "license": "None for the moment"
+}
