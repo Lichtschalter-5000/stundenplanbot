@@ -14,20 +14,20 @@ const blockSchedule = new BlockSchedule();
 (async () => {
      const url = await schedule.getScheduleURL();
      const scheduleObj = await converter.convert(url);
-    //await blockSchedule.setBlockSchedule();
+     await blockSchedule.setBlockSchedule();
 
-    if(!blockSchedule.getDayInSchedule(FORM, DAY)) {
-        console.log(DAY + " is not in your schedule.");
-        return;
-    }
-    // console.log(DAY + " is in your schedule (form "+ FORM +")!");
+     // if(!blockSchedule.getDayInSchedule(FORM, DAY)) {
+     //      console.log(DAY + " is not in your schedule.");
+     //      return;
+     // }
+     // console.log(DAY + " is in your schedule (form "+ FORM +")!");
 
-    const parser = new Parser(scheduleObj);
-    parser.setDay(DAY);
+     const parser = new Parser(scheduleObj);
+     parser.setDay(DAY);
 
-    parser.setForm(FORM);
+     parser.setForm(FORM);
 
-    //parser.getFirstLesson();
+     parser.getFirstLesson();
 
 
 })();
