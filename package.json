@@ -12,6 +12,8 @@
   "license": "None for the moment",
   "dependencies": {
     "make-fetch-happen": "^9.1.0",
-    "puppeteer": "^10.4.0"
+    "puppeteer": "^10.4.0",
+    "tabula-js": "^1.0.1",
+    "tmp": "^0.2.1"
   }
 }

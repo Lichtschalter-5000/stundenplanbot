@@ -1,6 +1,9 @@
+const testParserData = require("./testData").testParserData;
+
 module.exports = class Parser {
-    constructor(obj) {
+    constructor(obj, blockSchedule) {
         this.schedule = obj;
+        this.blockSchedule = blockSchedule;
 
         this.TEACHER = {
             "Sk": "Schwenkert",
@@ -31,6 +34,10 @@ module.exports = class Parser {
         }
     }
 
+    static getTestParser(blockSchedule){
+        return new Parser(testParserData, blockSchedule);
+    }
+
     setDay(day) {
         this.day = day;
     }
@@ -40,6 +47,13 @@ module.exports = class Parser {
     }
 
     getFirstLesson() {
+        const teacherRegEx = /\b[A-Z][a-zI]s?\b/;
+        function matchRoom (a) {
+            let match = a?a.match(/(\d)[.,]([U0])[.,](\d{1,2})/):"";
+            return match?match[1] + "." + match[2] + "." + match[3]:a.match(/\b((bis)|(und)|(Halle))\b/);
+        }
+        const subjectRegEx = /\b([DE]\b|([A-Z]([A-Za-z]{2,}|[A-HJ-Zp])))/g;
+
         let days = [[]];
         let collumns = [[]];
         let daysIn = 0;
@@ -49,11 +63,11 @@ module.exports = class Parser {
             let firstCell = line[0].match(/^\d$/);
             if (firstCell) {
                 firstCell = parseInt(firstCell[0]);
-                //console.log(firstCell);
-                days[daysIn][firstCell] = line;
                 if (firstCell === 1 && collumns[2]) {
                     days[++daysIn] = [];
                 }
+                // console.log("We're "+daysIn+" days in; First cell reads: "+firstCell);
+                days[daysIn][firstCell] = line;
                 for (let j = 2; j < line.length - 1; j++) {// ToDo sometimes its the third collumn, we need to check
                     //console.log("j="+(j-2)+" i="+(i-topRows));
                     if (i - topRows === 0) {
@@ -80,15 +94,14 @@ module.exports = class Parser {
             entries[i] = 0;
             for (let j = 0; j < collumn.length; j++) {
                 let cell = collumn[j];
-                if (!cell) {
+                if (!cell || cell === "") {
                     continue;
                 }
                 collumnType[i].sum++;
                 entries[i]++;
 
                 //room
-                let room = cell.match(/(\d)[.,]([U0])[.,](\d{1,2})/);
-                room = room?room[1] + "." + room[2] + "." + room[3]:cell.match(/\b((bis)|(und)|(Halle))\b/);
+                let room = matchRoom(cell)
                 if (room && !rooms.hasOwnProperty(room)) {
                     rooms[room] = 1;
                     collumnType[i].sum++;
@@ -100,7 +113,7 @@ module.exports = class Parser {
                 }
 
                 //teacher
-                let teacher = cell.match(/\b[A-Z][a-zI]s?\b/);
+                let teacher = cell.match(teacherRegEx);
                 if (teacher) {
                     teacher = teacher === "KI"?"Kl":teacher;
                     collumnType[i].teacher++;
@@ -108,7 +121,7 @@ module.exports = class Parser {
                 }
 
                 //subject
-                let candidate = cell.match(/\b([DE]\b|([A-Z]([A-Za-z]{2,}|[A-HJ-Zp])))/g);
+                let candidate = cell.match(subjectRegEx);
                 const subjects = Object.getOwnPropertyNames(this.SUBJECTS);
                 let intersection = candidate?subjects.filter(v => candidate.includes(v)):[];
                 if (intersection.length) {
@@ -119,21 +132,45 @@ module.exports = class Parser {
             entriesSum += entries[i];
         }
 
-        const entriesAvg = entriesSum / collumns.length;
-        let entriesDeviation = [];
-        let entriesDeviationSum = 0;
-        for (let i = 0; i < entries.length; i++) {
-            entriesDeviation[i] = Math.abs(entriesAvg - entries[i]);
-            entriesDeviationSum += entriesDeviation[i];
-        }
-        let entriesDeviationAvg = entriesDeviationSum / entriesDeviation.length;
-        for (let i = 0; i < entries.length; i++) {
-            console.log("collumn " + i + ": ");
-            console.log(collumns[i]);
-            console.log("\nIs empty? " +
-                (Math.abs(entriesAvg - entries[i]) > 2.0 * entriesDeviationAvg) + "\nCollumn Type is: " +
-                (collumnType[i].teacher>collumnType[i].subject?"teacher":(collumnType[i].teacher >collumnType[i].room?"teacher":(collumnType[i].subject>collumnType[i].room?"subject":"room"))) + "\n" +
-                Math.max(collumnType[i].teacher, collumnType[i].subject, collumnType[i].room));
+        // const entriesAvg = entriesSum / collumns.length;
+        // let entriesDeviation = [];
+        // let entriesDeviationSum = 0;
+        // for (let i = 0; i < entries.length; i++) {
+        //     entriesDeviation[i] = Math.abs(entriesAvg - entries[i]);
+        //     entriesDeviationSum += entriesDeviation[i];
+        // }
+        // let entriesDeviationAvg = entriesDeviationSum / entriesDeviation.length;
+        // for (let i = 0; i < entries.length; i++) {
+        //     // check for emptyness, flawed: if(Math.abs(entriesAvg - entries[i]) > 2.0 * entriesDeviationAvg) {
+        //     console.log("collumn " + i + ": ");
+        //     console.log(collumns[i]);
+        //     console.log("\nIs empty? " +
+        //         (Math.abs(entriesAvg - entries[i]) > 2.0 * entriesDeviationAvg) + "\nCollumn Type is: " +
+        //         // check collumn Type: (collumnType[i].teacher > collumnType[i].subject?"teacher":(collumnType[i].teacher > collumnType[i].room?"teacher":(collumnType[i].subject > collumnType[i].room?"subject":"room"))) + "\n" +
+        //         // Math.max(collumnType[i].teacher, collumnType[i].subject, collumnType[i].room));
+        // }
+
+        let formsTotal = this.blockSchedule.getFormsAtDay(this.day);
+        const indexOfForm = formsTotal.indexOf(this.form);
+        formsTotal = formsTotal.length;
+        // console.log(this.blockSchedule.getFormsAtDay(this.day) + " " + this.form);
+
+        let roomCollumnIndex;
+        let roomCollumnsPast = 0;
+        collumnType.forEach((val,index) => {
+            if (val.room > 0.15 * val.sum) {
+                if (roomCollumnsPast++ === indexOfForm && !roomCollumnIndex) {
+                    roomCollumnIndex = index+2;
+                }
+            }
+        });
+        if (roomCollumnsPast !== formsTotal) {console.log("Found less room collumns than classes, not reassuring...");}
+
+        for (let d of days[this.day.getDay()-1]) {
+            if(!d) {continue;}
+            if (matchRoom(d[roomCollumnIndex])) {
+                return d[1];
+            }
         }
     }
 

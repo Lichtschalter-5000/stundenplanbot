@@ -1,9 +1,25 @@
-// const fetch = require("make-fetch-happen");
+const fetch = require("make-fetch-happen");
+const tabula = require("tabula-js");
+const fs = require("fs");
+const tmp = require("tmp");
 
 module.exports = class BlockSchedule {
     constructor() {
         this.blockSchedule = null;
     }
+
+    async downloadBlockSchedule() { //ToDo dynamically get link
+        // const res = await fetch("https://bsmedien.musin.de/medienberufe/wp-content/uploads/2021/05/Blockplan_VT_2021-22.pdf");
+        // const tmpObj = tmp.fileSync();
+        // console.log(tmpObj.name);
+        // fs.writeFileSync(tmpObj.name, await res.buffer());
+        // const t = tabula("C:\\Chrome\\ Downloads\\Blockplan_VT_2021-22.pdf", {silent: true});
+        // t.extractCsv((e, data) => {
+        //     console.log("Data: "+data);
+        //     if (e) {console.log("tabula error "+e)}
+        // });
+    }
+
     async setBlockSchedule() {
         // ToDo fetch BlockSchedule from website
         const csv = `,,,,,,,VT,101/102,,VT,201/202,,VT,301/302,
@@ -57,32 +73,68 @@ Pfingsten,,23,06.06.2022,-,10.06.2022,,,,,,,,,,
 
         const lines = csv.split("\n");
         let result = [];
-        for (let i = 0;i<lines.length;i++) {
+        for (let i = 0; i < lines.length; i++) {
             result.push(lines[i].split(","))
         }
         this.blockSchedule = result;
+
+        this.forms = [ // classes[year][block][class] ToDo automate or check with English and "Kurse"
+            [
+                ["111","112"],
+                ["121"],
+                ["131","132"]
+            ],
+            [
+                ["211"],
+                ["221","222"],
+                ["232"]
+            ],
+            [
+                ["311","312"],
+                ["321","322"],
+                ["331","332"]
+            ]
+        ]
     }
 
     getDayInSchedule(form, day) {
         form = form.match(/\d{3}/)[0];
+        const formIndex = 7 + (parseInt(form[0]) - 1) * 3 + parseInt(form[1]) - 1;
+        return !!this.getLineOfDay(day)["line"][formIndex];  //ToDo assert line.index != -1
+    }
+
+    getFormsAtDay(day) {
+        const line = this.getLineOfDay(day)["line"]; //ToDo assert line.index != -1
+        let result = [];
+        for (let i = 7; i <= 7 + 9; i++) {
+            if (line[i]) {
+                for( let form of this.forms[Math.floor((i-7)/3)][(i-7)%3]) {
+                    result.push(form);
+                }
+            }
+        }
+        result.sort();//(a,b)=>parseInt(a)-parseInt(b));
+        return result;
+    }
+
+    getLineOfDay(day) {
         for (let i = 0; i < this.blockSchedule.length; i++) {
             const line = this.blockSchedule[i];
             let endDate = line[5].trim().match(/(\d{2})\.(\d{2})\.(\d{4})/);
             // console.log("Parsed end Date: "+endDate+" is "+ !!endDate);
             if (endDate) {
-                endDate = new Date(parseInt(endDate[3]), parseInt(endDate[2])-1, parseInt(endDate[1]), 12);
+                endDate = new Date(parseInt(endDate[3]), parseInt(endDate[2]) - 1, parseInt(endDate[1]), 12);
                 // console.log("converted end date "+endDate);
                 if (endDate >= day) {
                     let startDate = line[3].trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
                     // console.log("parsed start date is " + startDate);
-                    startDate = new Date(parseInt(startDate[3]), parseInt(startDate[2])-1, parseInt(startDate[1]), 5);
+                    startDate = new Date(parseInt(startDate[3]), parseInt(startDate[2]) - 1, parseInt(startDate[1]), 5);
                     if (startDate.getTime() <= day.getTime()) {
-                        const formIndex = 7 + (parseInt(form[0])-1)*3 + parseInt(form[1])-1;
-                        return !!line[formIndex];
+                        return {index: i, line: this.blockSchedule[i]};
                     }
                 }
             }
         }
-        return false;
+        return {index: -1};
     }
 }
