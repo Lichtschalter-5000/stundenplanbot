@@ -5,7 +5,7 @@ module.exports = class Parser {
         this.schedule = obj;
         this.blockSchedule = blockSchedule;
 
-        this.TEACHER = {
+        this.TEACHERS = {
             "Sk": "Schwenkert",
             "Kl": "Klostermaier",
             "Ht": "Hergert",
@@ -49,7 +49,7 @@ module.exports = class Parser {
     getFirstLesson() {
         const teacherRegEx = /\b[A-Z][a-zI]s?\b/;
         function matchRoom (a) {
-            let match = a?a.match(/(\d)[.,]([U0])[.,](\d{1,2})/):"";
+            let match = a?a.match(/(\d)[.,]\s?([U0])[.,\s]\s?(\d{1,2})/):"";
             return match?match[1] + "." + match[2] + "." + match[3]:a.match(/\b((bis)|(und)|(Halle))\b/);
         }
         const subjectRegEx = /\b([DE]\b|([A-Z]([A-Za-z]{2,}|[A-HJ-Zp])))/g;
@@ -164,14 +164,26 @@ module.exports = class Parser {
                 }
             }
         });
-        if (roomCollumnsPast !== formsTotal) {console.log("Found less room collumns than classes, not reassuring...");}
-
-        for (let d of days[this.day.getDay()-1]) {
-            if(!d) {continue;}
+        // if (roomCollumnsPast !== formsTotal) {console.log("Found less room collumns than classes, not reassuring...");}
+        let result = "ERR: Found nothing to indicate there's school... ";
+        days[this.day.getDay()-1].forEach((d, index) => {
+            if(!d) {return;}
             if (matchRoom(d[roomCollumnIndex])) {
-                return d[1];
+                result = d[1] + " (" + index + ". lesson)";
+            } else {
+                // console.log(d);
+                let concat = d[roomCollumnIndex - 2].concat(d[roomCollumnIndex - 1]);
+                let teacherMatch = concat.match(teacherRegEx);
+                let subjectMatch = concat.match(subjectRegEx);
+                if (teacherMatch && subjectMatch) {
+                    if (this.TEACHERS.hasOwnProperty(teacherMatch[0]) && this.SUBJECTS.hasOwnProperty(subjectMatch)) {
+                        result = d[1] + " (" + index + ". lesson)";
+                    }
+                }
             }
-        }
+        });
+
+        return result;
     }
 
 };
