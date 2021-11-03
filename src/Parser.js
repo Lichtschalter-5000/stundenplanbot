@@ -1,4 +1,4 @@
-const testParserData = require("./testData").testParserData;
+const testParserData = require("../test_data/testData").testParserData;
 
 module.exports = class Parser {
     constructor(obj, blockSchedule) {

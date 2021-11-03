@@ -3,8 +3,8 @@ const CSVConverter = require("./CSVConverter");
 const BlockSchedule = require("./BlockSchedule");
 const Parser = require("./Parser");
 
-const DAY = new Date("October 25, 2021 12:00:00");
-const FORM = "221";
+const DAY = new Date("October 20, 2021 12:00:00");
+const FORM = "111";
 
 const schedule = new Schedule();
 const converter = new CSVConverter();
@@ -32,9 +32,12 @@ const blockSchedule = new BlockSchedule();
      console.log(DAY + " is in your schedule (form "+ FORM +")!");
 
      const parser = Parser.getTestParser(blockSchedule);// new Parser(scheduleObj);
-     parser.setDay(DAY);
+     for(let k = 20; k <= 24;k++) {
+          parser.setDay(new Date("September "+k+", 2021 12:00:00"));
+     // parser.setDay(DAY);
      parser.setForm(FORM);
 
-     console.log("First lesson of form "+FORM+" on "+DAY+" starts at "+ parser.getFirstLesson());
+          console.log("First lesson of form " + FORM + " on " + DAY + " starts at " + parser.getFirstLesson());
+     }
 })();
 
