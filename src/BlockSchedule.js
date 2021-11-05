@@ -100,11 +100,16 @@ Pfingsten,,23,06.06.2022,-,10.06.2022,,,,,,,,,,
     getDayInSchedule(form, day) {
         form = form.match(/\d{3}/)[0];
         const formIndex = 7 + (parseInt(form[0]) - 1) * 3 + parseInt(form[1]) - 1;
-        return !!this.getLineOfDay(day)["line"][formIndex];  //ToDo assert line.index != -1
+        const lineofday = this.getLineOfDay(day);
+        return lineofday["index"] !== -1 && !!lineofday["line"][formIndex];
     }
 
     getFormsAtDay(day) {
-        const line = this.getLineOfDay(day)["line"]; //ToDo assert line.index != -1
+        let line = this.getLineOfDay(day);
+        if(line.index===-1) {
+            return [];
+        }
+        line = line["line"];
         let result = [];
         for (let i = 7; i <= 7 + 9; i++) {
             if (line[i]) {
