@@ -49,7 +49,6 @@ const blockSchedule = new BlockSchedule();
 
      let discord_daily = new CronJob("0 0 20 * * Sun-Thu", async () => {await discordBot.notifyDaily();}, null, true, "Europe/Berlin", null, true);
      discord_daily.start();
-     await discordBot.notifyDaily();
 
      process.once('SIGINT', () => discord_daily.stop());
      process.once('SIGTERM', () => discord_daily.stop());
