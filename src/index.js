@@ -2,13 +2,15 @@ const Schedule = require("./Schedule");
 const CSVConverter = require("./CSVConverter");
 const BlockSchedule = require("./BlockSchedule");
 const Parser = require("./Parser");
+const DiscordBot = require("./DiscordBot");
+const TelegramBot = require("./TelegramBot");
+const CronJob = require("cron").CronJob;
 
 let DAY = new Date("October 20, 2021 12:00:00");
-const FORM = "111";
+const FORM = "121";
 
 module.exports.DEBUG = false;
 
-const schedule = new Schedule();
 const converter = new CSVConverter();
 const blockSchedule = new BlockSchedule();
 
