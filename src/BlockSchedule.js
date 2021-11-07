@@ -142,4 +142,16 @@ Pfingsten,,23,06.06.2022,-,10.06.2022,,,,,,,,,,
         }
         return {index: -1};
     }
+
+    getNextSchoolDay(form) {
+        let day = new Date();
+        for (let i = 0; i < 356; i++) {
+            if (this.getDayInSchedule(form, day)) {
+                return day;
+            } else {
+                day.setDate(day.getDate() + 1);
+            }
+        }
+        return new Date(0);
+    }
 }

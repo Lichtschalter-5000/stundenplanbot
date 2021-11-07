@@ -39,15 +39,7 @@ module.exports = class Parser {
         return new Parser(testParserData, blockSchedule);
     }
 
-    setDay(day) {
-        this.day = day;
-    }
-
-    setForm(form) {
-        this.form = form;
-    }
-
-    getFirstLesson() {
+    getFirstLesson(day, form) {
         const teacherRegEx = /\b[A-Z][a-zI]s?\b/;
         function matchRoom (a) {
             let match = a?a.match(/(\d)[.,]\s?([U0])[.,\s]\s?(\d{1,2})/):"";
@@ -165,11 +157,11 @@ module.exports = class Parser {
         //         // Math.max(collumnType[i].teacher, collumnType[i].subject, collumnType[i].room));
         // }
 
-        let formsTotal = this.blockSchedule.getFormsAtDay(this.day);
-        const indexOfForm = formsTotal.indexOf(this.form);
-        if(this.debugging) {console.log("Found " + formsTotal.length + " ("+formsTotal+") forms for the day, form " + this.form + " should be the " + (indexOfForm + 1) + ". form from the left.");}
+        let formsTotal = this.blockSchedule.getFormsAtDay(day);
+        const indexOfForm = formsTotal.indexOf(form);
+        if(this.debugging) {console.log("Found " + formsTotal.length + " ("+formsTotal+") forms for the day, form " + form + " should be the " + (indexOfForm + 1) + ". form from the left.");}
         formsTotal = formsTotal.length;
-        // console.log(this.blockSchedule.getFormsAtDay(this.day) + " " + this.form);
+        // console.log(this.blockSchedule.getFormsAtDay(day) + " " + form);
 
         let roomCollumnIndex; //ToDo one room collumn spread over two adjacent collumns
         let roomCollumnsPast = 0;
@@ -188,7 +180,7 @@ module.exports = class Parser {
         }
         if (roomCollumnsPast !== formsTotal && this.debugging) {console.log("\nFound less room collumns than classes, that's not reassuring...");} else {console.log("");}
         let result = "ERR: Found nothing to indicate there's school... ";
-        days[this.day.getDay()-1].forEach((d, index) => {
+        days[day.getDay()-1].forEach((d, index) => {
             if(!d||result.substr(0,3)!=="ERR") {/*console.log("breaking");*/ return;}
             if(this.debugging) {process.stdout.write("Line " + (index + 1) + ":");}
             if (matchRoom(d[roomCollumnIndex])) {

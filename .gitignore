@@ -28,5 +28,7 @@ npm-debug.log*
 
 #Credentials
 Credentials.js
+authorized_tg_users.json
+discord_db.json
 
 test_data/

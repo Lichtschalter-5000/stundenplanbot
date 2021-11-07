@@ -3,7 +3,7 @@ const Credentials = require("../Credentials")
 
 module.exports = class Schedule {
 
-    async getScheduleURL() {
+    static async getScheduleURL() {
         const browser = await puppeteer.launch();
         const page = await browser.newPage();
         try {
@@ -46,14 +46,12 @@ module.exports = class Schedule {
                 const tiles = document.querySelectorAll("div.tile");
                 for (let i = 0; i < tiles.length; i++) {
                     if(tiles[i].innerText.includes("VT")){
-                        let result = "https://dsbmobile.de/data/".concat(
+                        return "https://dsbmobile.de/data/".concat(
                             tiles[i]
                                 .querySelector(".tile-content.absolute-full")
                                 .style["backgroundImage"]
                                 .match(/(\?f=)(.+\.png)/)[2]
                             );
-                        console.log("Found it! -> " + result);
-                        return result;
                     }
                 }
                 return "ERR: Couldn't find a schedule.";
@@ -62,7 +60,7 @@ module.exports = class Schedule {
             await browser.close();
             return "ERR: Puppeteer had problems while trying to find the schedule."
         }
-
+        if (img_url.toString().substr(0,3)!=="ERR") { console.log("Found it! -> " + img_url);}
         console.log("Closing Browser")
         await browser.close();
         return img_url;
