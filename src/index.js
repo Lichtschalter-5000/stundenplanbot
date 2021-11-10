@@ -1,4 +1,4 @@
-const Schedule = require("./Schedule");
+const dsbConnector = require("./DSBConnector").getInstance();
 const CSVConverter = require("./CSVConverter");
 const BlockSchedule = require("./BlockSchedule");
 const Parser = require("./Parser");
@@ -16,9 +16,9 @@ const blockSchedule = new BlockSchedule();
 
 
 (async () => {
-     const url = await Schedule.getScheduleURL();
-     if (url.substr(0, 3) === "ERR") {
-          console.log(url + " Aborting.");
+     const url = await dsbConnector.getScheduleURL();
+     if (!url) {
+          console.log("Couldn't get URL of the timetable. Aborting.");
           return;
      }
      const scheduleObj = await converter.convert(url);
@@ -43,7 +43,7 @@ const blockSchedule = new BlockSchedule();
      //      console.log("First lesson of form " + FORM + " on " + DAY + " starts at " + parser.getFirstLesson(DAY, FORM));
      // }
 
-     const discordBot = new DiscordBot({schedule:Schedule, parser:parser, blockSchedule:blockSchedule});
+     const discordBot = new DiscordBot({schedule:dsbConnector, parser:parser, blockSchedule:blockSchedule});
      await discordBot.init();
      // const telegramBot = new TelegramBot();
 
