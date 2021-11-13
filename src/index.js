@@ -2,7 +2,6 @@ module.exports.dsbConnector = require("./DSBConnector").getInstance();
 module.exports.blockSchedule = require("./BlockSchedule").getInstance();
 const CSVConverter = require("./CSVConverter");
 const Parser = require("./Parser");
-const DiscordBot = require("./DiscordBot");
 const TelegramBot = require("./TelegramBot");
 const CronJob = require("cron").CronJob;
 
@@ -37,16 +36,15 @@ const converter = new CSVConverter();
      //      }
      //      if(module.exports.DEBUG) {console.log(DAY + " is in your schedule (form "+ FORM +")!");}
      //
-     const parser = new Parser(scheduleObj);// Parser.getTestParser(blockSchedule);
+     module.exports.parser = new Parser(scheduleObj);// Parser.getTestParser(blockSchedule);
      //
      //      console.log("First lesson of form " + FORM + " on " + DAY + " starts at " + parser.getFirstLesson(DAY, FORM));
      // }
 
-     const discordBot = new DiscordBot({schedule:module.exports.dsbConnector, parser:parser, blockSchedule:module.exports.blockSchedule});
-     await discordBot.init();
+     const discordBot = await require("./DiscordBot").getInstance();
      // const telegramBot = new TelegramBot();
 
-     let discord_daily = new CronJob("0 0 20 * * Sun-Thu", async () => {await discordBot.notifyDaily();}, null, true, "Europe/Berlin", null, true);
+     let discord_daily = new CronJob("0 0 20 * * Sun-Thu", discordBot.notifyDaily, null, true, "Europe/Berlin")//, null, true); // for testing purposes include arguments null & true to fire event at startup
      discord_daily.start();
 
      process.once('SIGINT', () => discord_daily.stop());
