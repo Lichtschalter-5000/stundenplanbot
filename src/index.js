@@ -21,7 +21,6 @@ const converter = new CSVConverter();
           return;
      }
      await module.exports.blockSchedule.refresh();
-     return;
      const scheduleObj = await converter.convert(url);
      if(typeof scheduleObj === "string" && scheduleObj.substr(0,3) === "ERR") {
           console.log(scheduleObj + " Aborting.");
@@ -38,12 +37,12 @@ const converter = new CSVConverter();
      //      }
      //      if(module.exports.DEBUG) {console.log(DAY + " is in your schedule (form "+ FORM +")!");}
      //
-     const parser = new Parser(scheduleObj, blockSchedule);// Parser.getTestParser(blockSchedule);
+     const parser = new Parser(scheduleObj);// Parser.getTestParser(blockSchedule);
      //
      //      console.log("First lesson of form " + FORM + " on " + DAY + " starts at " + parser.getFirstLesson(DAY, FORM));
      // }
 
-     const discordBot = new DiscordBot({schedule:module.exports.dsbConnector, parser:parser, blockSchedule:blockSchedule});
+     const discordBot = new DiscordBot({schedule:module.exports.dsbConnector, parser:parser, blockSchedule:module.exports.blockSchedule});
      await discordBot.init();
      // const telegramBot = new TelegramBot();
 

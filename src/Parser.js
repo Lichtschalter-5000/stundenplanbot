@@ -1,10 +1,10 @@
 const testParserData = require("../test_data/testData").testParserData;
+const blockSchedule = require("./index").blockSchedule;
 
 module.exports = class Parser {
-    constructor(obj, blockSchedule) {
+    constructor(obj) {
         this.debugging = require("./index").DEBUG;
         this.schedule = obj;
-        this.blockSchedule = blockSchedule;
 
         this.TEACHERS = {
             "Sk": "Schwenkert",
@@ -157,11 +157,11 @@ module.exports = class Parser {
         //         // Math.max(collumnType[i].teacher, collumnType[i].subject, collumnType[i].room));
         // }
 
-        let formsTotal = this.blockSchedule.getFormsAtDay(day);
+        let formsTotal = blockSchedule.getFormsAtDay(day);
         const indexOfForm = formsTotal.indexOf(form);
         if(this.debugging) {console.log("Found " + formsTotal.length + " ("+formsTotal+") forms for the day, form " + form + " should be the " + (indexOfForm + 1) + ". form from the left.");}
         formsTotal = formsTotal.length;
-        // console.log(this.blockSchedule.getFormsAtDay(day) + " " + form);
+        // console.log(blockSchedule.getFormsAtDay(day) + " " + form);
 
         let roomCollumnIndex; //ToDo one room collumn spread over two adjacent collumns
         let roomCollumnsPast = 0;
