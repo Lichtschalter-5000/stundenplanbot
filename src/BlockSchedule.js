@@ -1,27 +1,72 @@
 const fetch = require("make-fetch-happen");
-const tabula = require("tabula-js");
+const util = require("util");
+const cheerio = require("cheerio");
+const exec = util.promisify(require("child_process").exec);
 const fs = require("fs");
 const tmp = require("tmp");
 
+let instance, currentUrl, blockSchedule, refreshingPromise;
+
 module.exports = class BlockSchedule {
     constructor() {
-        this.blockSchedule = null;
+        this.refresh().catch(console.error);
     }
 
-    async downloadBlockSchedule() { //ToDo dynamically get link
-        // const res = await fetch("https://bsmedien.musin.de/medienberufe/wp-content/uploads/2021/05/Blockplan_VT_2021-22.pdf");
-        // const tmpObj = tmp.fileSync();
-        // console.log(tmpObj.name);
-        // fs.writeFileSync(tmpObj.name, await res.buffer());
-        // const t = tabula("C:\\Chrome\\ Downloads\\Blockplan_VT_2021-22.pdf", {silent: true});
-        // t.extractCsv((e, data) => {
-        //     console.log("Data: "+data);
-        //     if (e) {console.log("tabula error "+e)}
-        // });
+    static getInstance() {
+        if (!instance) {
+            instance = new this();
+        }
+        return instance;
     }
 
-    async setBlockSchedule() {
-        // ToDo fetch BlockSchedule from website
+    async refresh() {
+        // if (!refreshingPromise) {
+            /*refreshingPromise = fetch("https://bsmedien.musin.de/medienberufe/blockplaene/").then(result => result.text()).then(data => {
+                const $ = cheerio.load(data);
+                let isNew = Promise.resolve(false);
+                $(".et_pb_text_inner").map((i, div) => {
+                    if ($("h1", div).text().match(BlockSchedule.getCurrentSchoolYear())) {
+                        $("a", div).map((j, a) => {
+                            if ($(a).text().match("Veranstaltungstechnik")) {
+                                const url = $(a).attr("href");
+                                if (url && url !== currentUrl) {
+                                    isNew = Promise.resolve(true);
+                                    currentUrl = url;
+                                } else if (!url) {
+                                    isNew = Promise.reject("The href-Attribute of the a tag i was looking for is empty or nonexistent.");
+                                }
+                            }
+                        })
+                    }
+                });
+                return isNew;
+            }).then(isNew => {
+                if (isNew) {
+                    fetch(currentUrl).then(res => {
+                        const tmpObj = tmp.fileSync({"postfix": ".pdf"});
+                        res.buffer().then(async buffer => {
+                            fs.writeFileSync(tmpObj.name, buffer);
+                            const { stdout, stderr } = await exec(`java -jar ${__dirname}\\tabula.jar "${tmpObj.name}" -l -i`);
+                            if(stderr) console.error("Tabula encountered errors: " + stderr);
+
+                            const lines = stdout.split("\n");
+                            let result = [];
+                            for (let line of lines) {
+                                result.push(line.split(","))
+                            }
+                            //ToDo purge empty collumns and unshift shifted lines
+                            this.blockSchedule = result;
+
+                            tmpObj.removeCallback();
+                        })
+                    })
+                }
+                return Promise.resolve(isNew);
+            }).finally(() => refreshingPromise = undefined);*/
+
+
+
+
         const csv = `,,,,,,,VT,101/102,,VT,201/202,,VT,301/302,
 Jahr,Monat,,Montag,-,Freitag,,,,,,,,,,
 2021,Sept.,37,13.09.2021,-,17.09.2021,4,,,,,,,,,
@@ -73,8 +118,8 @@ Pfingsten,,23,06.06.2022,-,10.06.2022,,,,,,,,,,
 
         const lines = csv.split("\n");
         let result = [];
-        for (let i = 0; i < lines.length; i++) {
-            result.push(lines[i].split(","))
+        for (let line of lines) {
+            result.push(line.split(","))
         }
         this.blockSchedule = result;
 
@@ -95,6 +140,8 @@ Pfingsten,,23,06.06.2022,-,10.06.2022,,,,,,,,,,
                 ["331"]
             ]
         ]
+        // }
+        // return refreshingPromise;
     }
 
     getDayInSchedule(form, day) {
@@ -123,6 +170,7 @@ Pfingsten,,23,06.06.2022,-,10.06.2022,,,,,,,,,,
     }
 
     getLineOfDay(day) {
+        if(!this.blockSchedule)
         for (let i = 0; i < this.blockSchedule.length; i++) {
             const line = this.blockSchedule[i];
             let endDate = line[5].trim().match(/(\d{2})\.(\d{2})\.(\d{4})/);
@@ -153,5 +201,15 @@ Pfingsten,,23,06.06.2022,-,10.06.2022,,,,,,,,,,
             }
         }
         return new Date(0);
+    }
+
+    static getCurrentSchoolYear(date = new Date()) {
+        // assert 21st century
+        const year = date.getFullYear();
+        if(date.getMonth() <= 7) {//August
+            return (year-1) + "/" + year.toString().substr(2);
+        } else {
+            return year + "/" + (year+1).toString().substr(2);
+        }
     }
 }

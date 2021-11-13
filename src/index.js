@@ -1,6 +1,6 @@
-const dsbConnector = require("./DSBConnector").getInstance();
+module.exports.dsbConnector = require("./DSBConnector").getInstance();
+module.exports.blockSchedule = require("./BlockSchedule").getInstance();
 const CSVConverter = require("./CSVConverter");
-const BlockSchedule = require("./BlockSchedule");
 const Parser = require("./Parser");
 const DiscordBot = require("./DiscordBot");
 const TelegramBot = require("./TelegramBot");
@@ -12,22 +12,22 @@ const FORM = "121";
 module.exports.DEBUG = false;
 
 const converter = new CSVConverter();
-const blockSchedule = new BlockSchedule();
 
 
 (async () => {
-     const url = await dsbConnector.getScheduleURL();
+     const url = await module.exports.dsbConnector.getScheduleURL();
      if (!url) {
           console.log("Couldn't get URL of the timetable. Aborting.");
           return;
      }
+     await module.exports.blockSchedule.refresh();
+     return;
      const scheduleObj = await converter.convert(url);
      if(typeof scheduleObj === "string" && scheduleObj.substr(0,3) === "ERR") {
           console.log(scheduleObj + " Aborting.");
           return;
      }
      // console.log(scheduleObj);
-     await blockSchedule.setBlockSchedule();
      // for(let k = 8; k <= 12;k++) {
      //      DAY = new Date("November "+k+", 2021 12:00:00");
      //
@@ -43,7 +43,7 @@ const blockSchedule = new BlockSchedule();
      //      console.log("First lesson of form " + FORM + " on " + DAY + " starts at " + parser.getFirstLesson(DAY, FORM));
      // }
 
-     const discordBot = new DiscordBot({schedule:dsbConnector, parser:parser, blockSchedule:blockSchedule});
+     const discordBot = new DiscordBot({schedule:module.exports.dsbConnector, parser:parser, blockSchedule:blockSchedule});
      await discordBot.init();
      // const telegramBot = new TelegramBot();
 
