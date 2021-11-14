@@ -16,7 +16,7 @@ module.exports = class DSBConnector {
     }
 
     async getScheduleURL() {
-        return url?Promise.resolve(url):this.refresh().then(() => {return url;}).catch(console.error);
+        return url?Promise.resolve(url):this.refresh().then(() => url);
     }
 
 

@@ -17,7 +17,8 @@ const addFormChoices = (opt =>
         .addChoice("VT312", "312")
         .addChoice("VT321", "321")
         .addChoice("VT322", "322")
-        .addChoice("VT331", "331"));
+        .addChoice("VT331", "331")
+        .addChoice("None", ""));
 
 const commands = [
     // new SlashCommandBuilder().setName("ping").setDescription("Replies with pong!"),
@@ -51,6 +52,7 @@ const commands = [
 ]
     .map(command => command.toJSON());
 
+// noinspection JSCheckFunctionSignatures,JSClosureCompilerSyntax
 const rest = new REST({ version: '9' }).setToken(DISCORD_TOKEN);
 
 rest.put(Routes.applicationGuildCommands(DISCORD_CLIENT, DISCORD_SERVER), { body: commands })

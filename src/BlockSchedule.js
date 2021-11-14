@@ -144,34 +144,38 @@ Pfingsten,,23,06.06.2022,-,10.06.2022,,,,,,,,,,
         // return refreshingPromise;
     }
 
-    getDayInSchedule(form, day) {
-        form = form.match(/\d{3}/)[0];
-        const formIndex = 7 + (parseInt(form[0]) - 1) * 3 + parseInt(form[1]) - 1;
-        const lineofday = this.getLineOfDay(day);
-        return lineofday["index"] !== -1 && !!lineofday["line"][formIndex];
+    async getDayInSchedule(form, day) {
+        if(form) {
+            form = form.match(/\d{3}/)[0];
+            const formIndex = 7 + (parseInt(form[0]) - 1) * 3 + parseInt(form[1]) - 1;
+            return this.getLineOfDay(day).then(lineofday => lineofday["index"] !== -1 && !!lineofday["line"][formIndex]);
+        } else {
+            return Promise.resolve(!!(await this.getFormsAtDay(day)).length);
+        }
     }
 
-    getFormsAtDay(day) {
-        let line = this.getLineOfDay(day);
-        if(line.index===-1) {
-            return [];
-        }
-        line = line["line"];
-        let result = [];
-        for (let i = 7; i <= 7 + 9; i++) {
-            if (line[i]) {
-                for( let form of this.forms[Math.floor((i-7)/3)][(i-7)%3]) {
-                    result.push(form);
+    async getFormsAtDay(day) {
+        return this.getLineOfDay(day).then(line => {
+            if (line.index === -1) {
+                console.log("not included");
+                return [];
+            }
+            line = line["line"];
+            let result = [];
+            for (let i = 7; i <= 7 + 9; i++) {
+                if (line[i]) {
+                    for (let form of this.forms[Math.floor((i - 7) / 3)][(i - 7) % 3]) {
+                        result.push(form);
+                    }
                 }
             }
-        }
-        result.sort();//(a,b)=>parseInt(a)-parseInt(b));
-        return result;
+            result.sort();//(a,b)=>parseInt(a)-parseInt(b));
+            return result;
+        });
     }
 
-    getLineOfDay(day) {
-        if(!this.blockSchedule)
-        for (let i = 0; i < this.blockSchedule.length; i++) {
+    async getLineOfDay(day) {
+        const doit = (() => {for (let i = 0; i < this.blockSchedule.length; i++) {
             const line = this.blockSchedule[i];
             let endDate = line[5].trim().match(/(\d{2})\.(\d{2})\.(\d{4})/);
             // console.log("Parsed end Date: "+endDate+" is "+ !!endDate);
@@ -188,13 +192,18 @@ Pfingsten,,23,06.06.2022,-,10.06.2022,,,,,,,,,,
                 }
             }
         }
-        return {index: -1};
+        return {index: -1};});
+        if(!this.blockSchedule) {
+            return this.refresh().then(() => doit());
+        } else {
+            return Promise.resolve(doit());
+        }
     }
 
-    getNextSchoolDay(form) {
+    async getNextSchoolDay(form) {
         let day = new Date();
         for (let i = 0; i < 356; i++) {
-            if (this.getDayInSchedule(form, day)) {
+            if (await this.getDayInSchedule(form, day)) {
                 return day;
             } else {
                 day.setDate(day.getDate() + 1);

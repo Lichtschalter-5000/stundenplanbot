@@ -1,74 +1,84 @@
-const testParserData = require("../test_data/testData").testParserData;
-const blockSchedule = require("./index").blockSchedule;
+// const testParserData = require("../test_data/testData").testParserData;
+const blockSchedule = (() => require("./BlockSchedule").getInstance());
 
-module.exports = class Parser {
-    constructor(obj) {
+const TEACHERS = {
+    "Sk": "Schwenkert",
+    "Kl": "Klostermaier",
+    "Ht": "Hergert",
+    "Ws": "Weiss",
+    "Vo": "Volkart",
+    "Le": "Lechner",
+    "Sc": "Schiel",
+    "Hd": "Held",
+    "My": "Mayer",
+    "Wb": "Westerberg",
+    "Kos": "Kosian oder so",
+    "Fe": "Fechter"
+};
+const SUBJECTS = {
+    "Kurse": "Kurse",
+    "E": "Englisch",
+    "PlOrg": "Planung und Organisation",
+    "VT": "Veranstaltungstechnik",
+    "PuG": "Politik und Gesellschaft",
+    "EneSi": "Energie und Sicherheit",
+    "D": "Deutsch",
+    "RK": "Katholische Religion",
+    "Eth": "Ethik",
+    "Sp": "Sport"
+};
+
+let rawSchedule;
+
+let instance;
+
+module.exports = class Schedule {
+    constructor() {
         this.debugging = require("./index").DEBUG;
-        this.schedule = obj;
+    }
 
-        this.TEACHERS = {
-            "Sk": "Schwenkert",
-            "Kl": "Klostermaier",
-            "Ht": "Hergert",
-            "Ws": "Weiss",
-            "Vo": "Volkart",
-            "Le": "Lechner",
-            "Sc": "Schiel",
-            "Hd": "Held",
-            "My": "Mayer",
-            "Wb": "Westerberg",
-            "Kos": "Kosian oder so",
-            "Fe": "Fechter"
-        };
-
-        this.SUBJECTS = {
-            "Kurse": "Kurse",
-            "E": "Englisch",
-            "PlOrg": "Planung und Organisation",
-            "VT": "Veranstaltungstechnik",
-            "PuG": "Politik und Gesellschaft",
-            "EneSi": "Energie und Sicherheit",
-            "D": "Deutsch",
-            "RK": "Katholische Religion",
-            "Eth": "Ethik",
-            "Sp": "Sport"
+    static getInstance() {
+        if (!instance) {
+            instance = new this();
         }
+        return instance;
     }
 
-    static getTestParser(blockSchedule){
-        return new Parser(testParserData, blockSchedule);
-    }
+    setSchedule(schedule) {rawSchedule = schedule;}
 
-    getFirstLesson(day, form) {
+    async getFirstLesson(day, form) {
         const teacherRegEx = /\b[A-Z][a-zI]s?\b/;
-        function matchRoom (a) {
+
+        function matchRoom(a) {
             let match = a?a.match(/(\d)[.,]\s?([U0])[.,\s]\s?(\d{1,2})/):"";
             return match?match[1] + "." + match[2] + "." + match[3]:a.match(/\b((bis)|(und)|(Halle))\b/);
         }
+
         const subjectRegEx = /\b([DE]\b|([A-Z]([A-Za-z]{2,}|[A-HJ-Zp])))/g;
 
         let leftCollumnsSum = 0
-        for (let line of this.schedule) {
-            for (let cell of line) {
+        for (let line of rawSchedule) {
+            for (let i = 0; i < line.length; line++) {
+                if (i > 3) break;
+                let cell = line[i];
+                // console.log("cell reads '" + cell+"'");
                 cell = cell.match(/^\d+$/) || "0";
-                if(cell && parseInt(cell[0])) {
-                    // console.log("cell reads '" + cell+"'");
+                if (cell && parseInt(cell[0])) {
                     // console.log("Matches " + cell+", parseInt: "+ parseInt(cell[0]));
                     break;
                 }
                 leftCollumnsSum++;
             }
         }
-
-        const leftCollumns = Math.round(leftCollumnsSum/this.schedule.length);
+        const leftCollumns = Math.round(leftCollumnsSum / rawSchedule.length);
         if (this.debugging) { console.log("Found " + leftCollumns + " collumns to the left."); }
         let days = [[]];
         let collumns = [[]];
         let daysIn = 0;
         let topRows = 0;
         let lineNumber = 0;
-        for (let i = 0; i < this.schedule.length; i++) {
-            const line = this.schedule[i];
+        for (let i = 0; i < rawSchedule.length; i++) {
+            const line = rawSchedule[i];
             // console.log("reading line " + line);
             let firstCell = line[leftCollumns].match(/^\d$/);
             if (firstCell) {
@@ -79,7 +89,7 @@ module.exports = class Parser {
                 }
                 // console.log("We're "+daysIn+" days in; First cell reads: "+firstCell);
                 days[daysIn][lineNumber++] = line;
-                for (let j = 2 + leftCollumns; j < line.length - 1; j++) {// ToDo sometimes its the third collumn, we need to check
+                for (let j = 2 + leftCollumns; j < line.length - 1; j++) {
                     //console.log("j="+(j-2)+" i="+(i-topRows));
                     if (i - topRows === 0) {
                         collumns[j - 2] = [];
@@ -130,7 +140,7 @@ module.exports = class Parser {
 
                 //subject
                 let candidate = cell.match(subjectRegEx);
-                const subjects = Object.getOwnPropertyNames(this.SUBJECTS);
+                const subjects = Object.getOwnPropertyNames(SUBJECTS);
                 let intersection = candidate?subjects.filter(v => candidate.includes(v)):[];
                 if (intersection.length) {
                     collumnType[i].subject++;
@@ -157,20 +167,20 @@ module.exports = class Parser {
         //         // Math.max(collumnType[i].teacher, collumnType[i].subject, collumnType[i].room));
         // }
 
-        let formsTotal = blockSchedule.getFormsAtDay(day);
+        let formsTotal = await blockSchedule().getFormsAtDay(day);
         const indexOfForm = formsTotal.indexOf(form);
-        if(this.debugging) {console.log("Found " + formsTotal.length + " ("+formsTotal+") forms for the day, form " + form + " should be the " + (indexOfForm + 1) + ". form from the left.");}
+        if (this.debugging) {console.log(`Found ${formsTotal.length} (${formsTotal}) forms for ${day}, form ${form} should be the ${indexOfForm + 1}. form from the left.`);}
         formsTotal = formsTotal.length;
-        // console.log(blockSchedule.getFormsAtDay(day) + " " + form);
+        // console.log(blockSchedule().getFormsAtDay(day) + " " + form);
 
         let roomCollumnIndex; //ToDo one room collumn spread over two adjacent collumns
         let roomCollumnsPast = 0;
-        collumnType.forEach((val,index) => {
-            if (this.debugging) {process.stdout.write("\nCollumn "+(index+1)+" has "+val.room+" room entries of "+val.sum+ " total ")}
+        collumnType.forEach((val, index) => {
+            if (this.debugging) {process.stdout.write("\nCollumn " + (index + 1) + " has " + val.room + " room entries of " + val.sum + " total ")}
             if (val.room > 0.15 * val.sum) {
                 if (this.debugging) {process.stdout.write("(let's count this as a room-collumn).");}
                 if (roomCollumnsPast++ === indexOfForm && !roomCollumnIndex) {
-                    roomCollumnIndex = index+2;
+                    roomCollumnIndex = index + 2;
                 }
             }
         });
@@ -180,26 +190,28 @@ module.exports = class Parser {
         }
         if (roomCollumnsPast !== formsTotal && this.debugging) {console.log("\nFound less room collumns than classes, that's not reassuring...");} else {console.log("");}
         let result = "ERR: Found nothing to indicate there's school... ";
-        days[day.getDay()-1].forEach((d, index) => {
-            if(!d||result.substr(0,3)!=="ERR") {/*console.log("breaking");*/ return;}
-            if(this.debugging) {process.stdout.write("Line " + (index + 1) + ":");}
+        days[day.getDay() - 1].forEach((d, index) => {
+            if (!d || result.substr(0, 3) !== "ERR") {/*console.log("breaking");*/
+                return;
+            }
+            if (this.debugging) {process.stdout.write("Line " + (index + 1) + ":");}
             if (matchRoom(d[roomCollumnIndex])) {
-                if (this.debugging) {console.log("Found a room in the room collumn for this class (collumn "+(roomCollumnIndex+1)+"), assume it's the first lesson.");}
-                result = d[1+leftCollumns] + " (" + (index + 1) + ". lesson)";
+                if (this.debugging) {console.log("Found a room in the room collumn for this class (collumn " + (roomCollumnIndex + 1) + "), assume it's the first lesson.");}
+                result = d[1 + leftCollumns] + " (" + (index + 1) + ". lesson)";
             } else {
-                if (this.debugging) {console.log("Couldn't match a room in the room collumn for this class (collumn "+(roomCollumnIndex+1)+"): '"+d[roomCollumnIndex]+"'");}
-                let concat = d[roomCollumnIndex - 2].concat(" " + d[roomCollumnIndex - 1]).concat(" "+d[roomCollumnIndex]);
-                let teacherMatch = concat.replace(/\bKI\b/,"Kl").match(teacherRegEx);
+                if (this.debugging) {console.log("Couldn't match a room in the room collumn for this class (collumn " + (roomCollumnIndex + 1) + "): '" + d[roomCollumnIndex] + "'");}
+                let concat = d[roomCollumnIndex - 2].concat(" " + d[roomCollumnIndex - 1]).concat(" " + d[roomCollumnIndex]);
+                let teacherMatch = concat.replace(/\bKI\b/, "Kl").match(teacherRegEx);
                 let subjectMatch = concat.match(subjectRegEx);
                 if (teacherMatch && subjectMatch) { // ToDo better matching (like for collumns)
                     // console.log("Match: "+teacherMatch + " evals to "+this.TEACHERS.hasOwnProperty(teacherMatch[0]));
                     // console.log("Match: "+subjectMatch + " evals to "+this.SUBJECTS.hasOwnProperty(subjectMatch[0]));
-                    if (this.TEACHERS.hasOwnProperty(teacherMatch[0]) && this.SUBJECTS.hasOwnProperty(subjectMatch[0])) {
+                    if (TEACHERS.hasOwnProperty(teacherMatch[0]) && SUBJECTS.hasOwnProperty(subjectMatch[0])) {
                         if (this.debugging) {console.log("Could find a subject and a teacher in the two preceeding collumns, assume it's the first lesson.")}
-                        result = d[1+leftCollumns] + " (" + (index + 1) + ". lesson)";
+                        result = d[1 + leftCollumns] + " (" + (index + 1) + ". lesson)";
                     }
                 }
-                if (this.debugging) {console.log("Couldn't find teacher and subject either... -> '"+concat+"'");}
+                if (this.debugging) {console.log("Couldn't find teacher and subject either... -> '" + concat + "'");}
             }
         });
 

@@ -1,7 +1,9 @@
 const {Client, Intents, MessageEmbed, MessageActionRow, MessageButton} = require("discord.js");
 const fs = require("fs");
 const {DSB_USERNAME, DSB_PASSWORD} = require("../Credentials");
-const index = require("./index");
+const schedule = (() => require("./Schedule").getInstance());
+const dsbConnector = (() => require("./DSBConnector").getInstance());
+const blockSchedule = (() => require("./BlockSchedule").getInstance());
 
 const TOKEN = require("../Credentials").DISCORD_TOKEN;
 
@@ -58,7 +60,7 @@ module.exports = class DiscordBot {
                                 db[id]["form"] = form;
                                 interaction.followUp("Alrighty, from now on, you" +
                                     (interaction.inGuild()?" (you being \"y'all on this server\")":"") +
-                                    " will get updates about the form VT" + form + "!").catch(console.error);
+                                    " will get updates concerning form VT" + form + "!").catch(console.error);
                             }
                         this.updatedb();
                         } else {
@@ -68,9 +70,9 @@ module.exports = class DiscordBot {
                     }
                     case "getschedule": {
                         interaction.deferReply().then(() => {
-                            index.dsbConnector.getScheduleURL().then(url => interaction.editReply(
-                                url.substr(0, 3) === "ERR"?
-                                    "Oh no! 😬 I encountered an error:\n" + url.substr(4):
+                            dsbConnector().getScheduleURL().then(url => interaction.editReply(
+                                !url?
+                                    "Oh no! 😬 Either I encountered some kind of error or there's simply no schedule online.":
                                     {
                                         embeds: [new MessageEmbed()
                                             .setColor("#40af40")
@@ -88,7 +90,7 @@ module.exports = class DiscordBot {
                             this.updatedb();
                             return interaction.editReply("Alrighty, from now on, you" +
                                 (interaction.inGuild()?" (you being \"y'all on this server\")":"") +
-                                " will get updates about the form VT" + db[id]["form"] + "!");
+                                " will get updates concerning form VT" + db[id]["form"] + "!");
                         }).catch(console.error);
                         break;
                     case "getlessonstart": {
@@ -98,28 +100,33 @@ module.exports = class DiscordBot {
                             // ToDo automatically ask which class to set
                             break;
                         }
-
-                        const today = index.blockSchedule.getDayInSchedule(form, new Date());
-                        const tomorrow = index.blockSchedule.getDayInSchedule(form, this.getTomorrowDate());
-
-                        if (!(today || tomorrow)) {
-                            interaction.reply("Woho, no lessons today or tomorrow for your form VT" + form + "!").catch(console.error);
-                        } else {
-                            const buttons = new MessageActionRow()
-                                .addComponents(
-                                    new MessageButton()
-                                        .setCustomId("getlessonstart_today")
-                                        .setLabel("Today")
-                                        .setDisabled(!today)
-                                        .setStyle("PRIMARY"),
-                                    new MessageButton()
-                                        .setCustomId("getlessonstart_tomorrow")
-                                        .setLabel("Tomorrow")
-                                        .setDisabled(!tomorrow)
-                                        .setStyle("PRIMARY")
-                                );
-                            interaction.reply({content: "For which day?", components: [buttons]}).catch(console.error);
-                        }
+                        interaction.deferReply().then(() => blockSchedule().getDayInSchedule(form, new Date()))
+                            .then(today => {
+                                blockSchedule().getDayInSchedule(form, this.getTomorrowDate()).then(tomorrow => {
+                                    if (!(today || tomorrow)) {
+                                        return interaction.editReply("Woho, no lessons today or tomorrow for your form VT" + form + "!");
+                                    } else {
+                                        const buttons = new MessageActionRow()
+                                            .addComponents(
+                                                new MessageButton()
+                                                    .setCustomId("getlessonstart_today")
+                                                    .setLabel("Today")
+                                                    .setDisabled(!today)
+                                                    .setStyle("PRIMARY"),
+                                                new MessageButton()
+                                                    .setCustomId("getlessonstart_tomorrow")
+                                                    .setLabel("Tomorrow")
+                                                    .setDisabled(!tomorrow)
+                                                    .setStyle("PRIMARY")
+                                            );
+                                        return interaction.editReply({
+                                            content: "For which day?",
+                                            components: [buttons],
+                                            ephemeral: true
+                                        });
+                                    }
+                                }).catch(console.error);
+                            });
                         break;
                     }
                 }
@@ -127,10 +134,10 @@ module.exports = class DiscordBot {
                 switch (interaction["customId"]) {
                     case "getlessonstart_today":
                     case "getlessonstart_tomorrow": {
-                        interaction.deferUpdate().then(() => interaction.editReply({
+                        interaction.deferUpdate().then(async () => interaction.editReply({
                             content: "Your first lesson " + interaction["customId"].substr(15) + " will start at " +
-                                index.parser.getFirstLesson(interaction["customId"] === "getlessonstart_tomorrow"?this.getTomorrowDate():new Date(), this.getFormFromId(id)) +
-                                "o' clock.",
+                                await schedule().getFirstLesson(interaction["customId"] === "getlessonstart_tomorrow"?this.getTomorrowDate():new Date(), this.getFormFromId(id)) +
+                                ".",
                             components: [],
                             ephemeral: true
                         }));
@@ -160,13 +167,30 @@ module.exports = class DiscordBot {
         return tomorrowDate;
     }
 
-    notifyDaily() {
+    async notifyDaily() {
         for (const id in db) {
             const form = db[id]["form"];
-            if (db[id]["authed"] && form && index.blockSchedule.getDayInSchedule(form, instance.getTomorrowDate())) {
-                client[db[id]["channel"]?"channels":"users"].fetch(id).then(destination => {
-                    destination.send(`Tomorrow, your lessons will start at ${index.parser.getFirstLesson(instance.getTomorrowDate(), form)}.`).catch(console.error);
+            if (db[id]["authed"] && form && await blockSchedule().getDayInSchedule(form, instance.getTomorrowDate())) {
+                client[db[id]["channel"]?"channels":"users"].fetch(id).then(async destination => {
+                    destination.send(`Tomorrow, your lessons will start at ${await schedule().getFirstLesson(instance.getTomorrowDate(), form)}.`).catch(console.error);
                 });
+            }
+        }
+    }
+
+    async notifyChange() {
+        for (const id in db) {
+            const form = db[id]["form"];
+            if (db[id]["authed"] && form && (await blockSchedule().getDayInSchedule(form, new Date()) || await blockSchedule().getDayInSchedule(form, instance.getTomorrowDate()))) {
+                client[db[id]["channel"]?"channels":"users"].fetch(id).then(destination =>
+                    dsbConnector().getScheduleURL().then(url => destination.send({
+                        embeds: [new MessageEmbed()
+                            .setColor("#40af40")
+                            .setImage(`${url}`)
+                            .setTitle("The current schedule")
+                            .setDescription("... has been updated, so here it is in it's full glory:")
+                            .setFooter(`${url}`)]
+                    }))).catch(console.error);
             }
         }
     }

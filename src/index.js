@@ -1,8 +1,8 @@
-module.exports.dsbConnector = require("./DSBConnector").getInstance();
-module.exports.blockSchedule = require("./BlockSchedule").getInstance();
+const dsbConnector = (() => require("./DSBConnector").getInstance());
+const blockSchedule = (() => require("./BlockSchedule").getInstance());
 const CSVConverter = require("./CSVConverter");
-const Parser = require("./Parser");
-const TelegramBot = require("./TelegramBot");
+const schedule = (() => require("./Schedule").getInstance());
+// const TelegramBot = require("./TelegramBot");
 const CronJob = require("cron").CronJob;
 
 let DAY = new Date("October 20, 2021 12:00:00");
@@ -14,40 +14,30 @@ const converter = new CSVConverter();
 
 
 (async () => {
-     const url = await module.exports.dsbConnector.getScheduleURL();
-     if (!url) {
-          console.log("Couldn't get URL of the timetable. Aborting.");
-          return;
-     }
-     await module.exports.blockSchedule.refresh();
-     const scheduleObj = await converter.convert(url);
-     if(typeof scheduleObj === "string" && scheduleObj.substr(0,3) === "ERR") {
-          console.log(scheduleObj + " Aborting.");
-          return;
-     }
-     // console.log(scheduleObj);
-     // for(let k = 8; k <= 12;k++) {
-     //      DAY = new Date("November "+k+", 2021 12:00:00");
-     //
-     //      if(module.exports.DEBUG) {console.log("Checking whether selected day is in the schedule of the selected form:");}
-     //      if(!blockSchedule.getDayInSchedule(FORM, DAY)) {
-     //           console.log("ERR: " + DAY + " is not in the schedule of form " + FORM + ". Aborting.");
-     //           return;
-     //      }
-     //      if(module.exports.DEBUG) {console.log(DAY + " is in your schedule (form "+ FORM +")!");}
-     //
-     module.exports.parser = new Parser(scheduleObj);// Parser.getTestParser(blockSchedule);
-     //
-     //      console.log("First lesson of form " + FORM + " on " + DAY + " starts at " + parser.getFirstLesson(DAY, FORM));
-     // }
+     dsbConnector().getScheduleURL().then(url => blockSchedule().refresh()
+         .then(() => CSVConverter.convert(url)))
+         .then(result => schedule().setSchedule(result))
+         .finally(async () => {
+              const discordBot = await require("./DiscordBot").getInstance();
+              // const telegramBot = new TelegramBot();
 
-     const discordBot = await require("./DiscordBot").getInstance();
-     // const telegramBot = new TelegramBot();
+              registerAndStartCron(new CronJob("0 0 20 * * Sun-Thu", discordBot.notifyDaily, null, true, "Europe/Berlin"))//, null, true)); // for testing purposes include arguments null & true to fire event at startup
+              registerAndStartCron(new CronJob("0 0 0 1 * *", () => {
+                   dsbConnector().refresh().then(changed => {
+                        if(changed) {
+                             discordBot.notifyChange();
+                             dsbConnector().getScheduleURL().then(url => CSVConverter.convert(url))
+                                 .then(schedule().setSchedule);
+                        }
+                   })
+              }, null, true, "Europe/Berlin"));
+         }).catch(console.error);
 
-     let discord_daily = new CronJob("0 0 20 * * Sun-Thu", discordBot.notifyDaily, null, true, "Europe/Berlin")//, null, true); // for testing purposes include arguments null & true to fire event at startup
-     discord_daily.start();
-
-     process.once('SIGINT', () => discord_daily.stop());
-     process.once('SIGTERM', () => discord_daily.stop());
+     // registerAndStartCron(new CronJob("0 0 0 1 * *", blockSchedule().refresh, null, true, "Europe/Berlin")); no point in doing that while refresh() doesn't work yet
 })();
 
+function registerAndStartCron(job) {
+     job.start();
+     process.once('SIGINT', () => job.stop());
+     process.once('SIGTERM', () => job.stop());
+}
