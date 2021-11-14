@@ -18,7 +18,7 @@ const addFormChoices = (opt =>
         .addChoice("VT321", "321")
         .addChoice("VT322", "322")
         .addChoice("VT331", "331")
-        .addChoice("None", ""));
+        .addChoice("None", "noform"));
 
 const commands = [
     // new SlashCommandBuilder().setName("ping").setDescription("Replies with pong!"),

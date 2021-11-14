@@ -86,11 +86,18 @@ module.exports = class DiscordBot {
                     }
                     case "setform":
                         interaction.deferReply().then(() => {
-                            db[id]["form"] = interaction.options.getString("form");
-                            this.updatedb();
-                            return interaction.editReply("Alrighty, from now on, you" +
-                                (interaction.inGuild()?" (you being \"y'all on this server\")":"") +
-                                " will get updates concerning form VT" + db[id]["form"] + "!");
+                            const input = interaction.options.getString("form");
+                            if(input==="noform") {
+                                db[id]["form"] = "";
+                                this.updatedb();
+                                return interaction.editReply("Alright, I will no longer send you any updates.");
+                            } else {
+                                db[id]["form"] = input;
+                                this.updatedb();
+                                return interaction.editReply("Alrighty, from now on, you" +
+                                    (interaction.inGuild()?" (you being \"y'all on this server\")":"") +
+                                    " will get updates concerning form VT" + db[id]["form"] + "!");
+                            }
                         }).catch(console.error);
                         break;
                     case "getlessonstart": {
