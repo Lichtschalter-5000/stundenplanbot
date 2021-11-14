@@ -136,6 +136,21 @@ module.exports = class DiscordBot {
                             });
                         break;
                     }
+                    case "messageme": {
+                        if (!interaction.inGuild() || db.hasOwnProperty(interaction.user.id)) {
+                            interaction.reply({content: "Why, am I not doing so already?", ephemeral: interaction.inGuild()})
+                                .then(() => {
+                                    if (db.hasOwnProperty(id) && (!this.getFormFromId(id) || !this.getFormFromId(interaction.user.id))) return interaction.followUp({content: "Maybe you should set a form using /setform [form].", ephemeral: interaction.inGuild()});
+                                }).catch(console.error);
+                        } else {
+                            db[interaction.user.id] = {"channel": false, "authed": true, "form": "lnk"+interaction.channelId};
+                            this.updatedb();
+                            client.users.fetch(interaction.user.id)
+                                .then(destination => destination.send(`Alright, I will DM you with information concerning the class configured in ${interaction.channel}`))
+                                .then(interaction.reply({content: "Ok. I sent you a message", ephemeral: true}))
+                                .catch(console.error);
+                        }
+                    }
                 }
             } else if (interaction.isButton()) {
                 switch (interaction["customId"]) {
@@ -165,7 +180,13 @@ module.exports = class DiscordBot {
     }
 
     getFormFromId(id) {
-        return db.hasOwnProperty(id)?db[id]["form"]:null;
+        if(db.hasOwnProperty(id)){
+            const form = db[id]["form"];
+            if (form) {
+                return form.substr(0, 3) === "lnk"?this.getFormFromId(form.substr(3)):form;
+            }
+        }
+        return undefined;
     }
 
     getTomorrowDate() {
@@ -176,7 +197,7 @@ module.exports = class DiscordBot {
 
     async notifyDaily() {
         for (const id in db) {
-            const form = db[id]["form"];
+            const form = this.getFormFromId(id);
             if (db[id]["authed"] && form && await blockSchedule().getDayInSchedule(form, instance.getTomorrowDate())) {
                 client[db[id]["channel"]?"channels":"users"].fetch(id).then(async destination => {
                     destination.send(`Tomorrow, your lessons will start at ${await schedule().getFirstLesson(instance.getTomorrowDate(), form)}.`).catch(console.error);
@@ -187,7 +208,7 @@ module.exports = class DiscordBot {
 
     async notifyChange() {
         for (const id in db) {
-            const form = db[id]["form"];
+            const form = this.getFormFromId(id);
             if (db[id]["authed"] && form && (await blockSchedule().getDayInSchedule(form, new Date()) || await blockSchedule().getDayInSchedule(form, instance.getTomorrowDate()))) {
                 client[db[id]["channel"]?"channels":"users"].fetch(id).then(destination =>
                     dsbConnector().getScheduleURL().then(url => destination.send({

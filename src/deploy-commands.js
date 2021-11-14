@@ -48,6 +48,7 @@ const commands = [
     new SlashCommandBuilder().setName("getschedule").setDescription("You'll be happily provided with an image of the present schedule " +
         "and an URL to it as well."),
     new SlashCommandBuilder().setName("getlessonstart").setDescription("Ask me when the lessons start."),
+    new SlashCommandBuilder().setName("messageme").setDescription("Activate DMs.")
     // new SlashCommandBuilder().setName("togglecallme").setDescription("I will call you ")
 ]
     .map(command => command.toJSON());
