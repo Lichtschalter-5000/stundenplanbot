@@ -22,12 +22,11 @@ const converter = new CSVConverter();
               // const telegramBot = new TelegramBot();
 
               registerAndStartCron(new CronJob("0 0 20 * * Sun-Thu", discordBot.notifyDaily, null, true, "Europe/Berlin"))//, null, true)); // for testing purposes include arguments null & true to fire event at startup
-              registerAndStartCron(new CronJob("0 0 0 1 * *", () => {
+              registerAndStartCron(new CronJob("0 30 6-22 * * *", () => {
                    dsbConnector().refresh().then(changed => {
                         if(changed) {
-                             discordBot.notifyChange();
                              dsbConnector().getScheduleURL().then(url => CSVConverter.convert(url))
-                                 .then(schedule().setSchedule);
+                                 .then(schedule().setSchedule).finally(discordBot.notifyChange).catch(console.error);
                         }
                    })
               }, null, true, "Europe/Berlin"));
