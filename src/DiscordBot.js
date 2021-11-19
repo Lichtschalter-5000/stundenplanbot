@@ -1,5 +1,6 @@
 const {Client, Intents, MessageEmbed, MessageActionRow, MessageButton} = require("discord.js");
 const fs = require("fs");
+const {CronJob, CronTime} = require("cron").CronJob;
 const {DSB_USERNAME, DSB_PASSWORD} = require("../Credentials");
 const schedule = (() => require("./Schedule").getInstance());
 const dsbConnector = (() => require("./DSBConnector").getInstance());
@@ -12,6 +13,8 @@ let db = JSON.parse(fs.readFileSync("./src/discord_db.json").toString());
 let client;
 let instance;
 let timesInitialised = 0;
+
+let reminderJobs = {};
 
 // noinspection JSUnresolvedFunction, JSUnresolvedVariable, JSCheckFunctionSignatures
 module.exports = class DiscordBot {
@@ -110,6 +113,7 @@ module.exports = class DiscordBot {
                         interaction.deferReply().then(() => blockSchedule().getDayInSchedule(form, new Date()))
                             .then(today => {
                                 blockSchedule().getDayInSchedule(form, this.getTomorrowDate()).then(tomorrow => {
+                                console.log("today: "+today+" tomorrow "+tomorrow);
                                     if (!(today || tomorrow)) {
                                         return interaction.editReply("Woho, no lessons today or tomorrow for your form VT" + form + "!");
                                     } else {
@@ -151,18 +155,37 @@ module.exports = class DiscordBot {
                                 .catch(console.error);
                         }
                     }
+                    case "reminder": {
+                        const time = parseInt(interaction.options.getInteger("time"));
+                        if(Math.abs(time) > 1440) {
+                            interaction.reply({content: `That's 24 hours ${time<0?"after":"before"} the lesson starts, don't you think that's a little bit too much?`, ephemeral: true})
+                                .catch(console.error);
+                            return;
+                        }
+                        db[id]["reminder"] = time; // ToDo disable reminder
+                        this.updatedb();
+                        interaction.deferReply()
+                        .then(this.refreshReminder(id))
+                        .then(interaction.reply({content: "Alright. Next reminder is scheduled on "+reminderJobs[id].nextDates[0], ephemeral: interaction.inGuild()}))
+                        .catch(console.error);
+                        break;
+                    }
                 }
             } else if (interaction.isButton()) {
                 switch (interaction["customId"]) {
                     case "getlessonstart_today":
                     case "getlessonstart_tomorrow": {
-                        interaction.deferUpdate().then(async () => interaction.editReply({
+                        interaction.deferUpdate().then(async () => {
+                            const firstLesson = await schedule().getFirstLesson(interaction["customId"] === "getlessonstart_tomorrow"?this.getTomorrowDate():new Date(), this.getFormFromId(id));
+                            interaction.editReply({
                             content: "Your first lesson " + interaction["customId"].substr(15) + " will start at " +
-                                await schedule().getFirstLesson(interaction["customId"] === "getlessonstart_tomorrow"?this.getTomorrowDate():new Date(), this.getFormFromId(id)) +
-                                ".",
+                                firstLesson["time"].toLocaleTimeString() +
+                                " (" +
+                                firstLesson["lesson"] +
+                                ". lesson).",
                             components: [],
                             ephemeral: true
-                        }));
+                        });});
                         break;
                     }
                 }
@@ -200,7 +223,7 @@ module.exports = class DiscordBot {
             const form = this.getFormFromId(id);
             if (db[id]["authed"] && form && await blockSchedule().getDayInSchedule(form, instance.getTomorrowDate())) {
                 client[db[id]["channel"]?"channels":"users"].fetch(id).then(async destination => {
-                    destination.send(`Tomorrow, your lessons will start at ${await schedule().getFirstLesson(instance.getTomorrowDate(), form)}.`).catch(console.error);
+                    destination.send(`Tomorrow, your lessons will start at ${(await schedule().getFirstLesson(instance.getTomorrowDate(), form))["time"].toLocaleTimeString()}.`).catch(console.error);
                 });
             }
         }
@@ -221,6 +244,45 @@ module.exports = class DiscordBot {
                     }))).catch(console.error);
             }
         }
+    }
+
+    async refreshReminder(id) {
+        const form = this.getFormFromId(id);
+        if(!form || !db[id].hasOwnProperty("reminder") || db[id]["reminder"] === false) {
+            return;
+        }
+
+        for (let a = 0; a < 60; a++) {
+            const nowTime = new Date();
+            const day = new Date();
+            day.setDate(new Date().getDate() + a);
+            console.log(`Looking at ${day}.`);
+            if(blockSchedule().getDayInSchedule(form,day)) {
+                const firstLessonTime = await schedule().getFirstLesson(day, form)["time"];
+                const reminderTime = new Date(firstLessonTime.getTime()/60000 - db[id]["reminder"]);
+                console.log(`Reminding at ${reminderTime}.`)
+                if(reminderTime <= nowTime + 5000) {
+                    continue;
+                } else {
+                    if(!reminderJobs.hasOwnProperty(id)) {
+                        reminderJobs[id] = new CronJob(reminderTime, () => {
+                             client[db[id]["channel"]?"channels":"users"].fetch(id).then(async destination => {
+                                destination.send(`Your next lesson will start in ${db[id]["reminder"]} minutes.`).catch(console.error);
+                            });
+                        }, null, true, "Europe/Berlin");
+                        process.once('SIGINT', () => reminderJobs[id].stop());
+                        process.once('SIGTERM', () => reminderJobs[id].stop());
+                    } else {
+                        reminderJobs[id].setTime(new CronTime(reminderTime));
+                    }
+                    break;
+                }
+
+            }
+        }
+
+
+
     }
 
 }

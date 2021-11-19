@@ -186,18 +186,19 @@ module.exports = class Schedule {
         });
         if (!roomCollumnIndex) {
             console.log("Probably there were less room collumns than there should be classes, this is a thing the parser can't handle at the moment."); // ToDo
-            return "ERR: found less room colllumns than there should be classes."
+            return {error: "Found less room colllumns than there should be classes."};
         }
         if (roomCollumnsPast !== formsTotal && this.debugging) {console.log("\nFound less room collumns than classes, that's not reassuring...");} else {console.log("");}
-        let result = "ERR: Found nothing to indicate there's school... ";
+        let result = {time: undefined, lesson: undefined};
         days[day.getDay() - 1].forEach((d, index) => {
-            if (!d || result.substr(0, 3) !== "ERR") {/*console.log("breaking");*/
+            if (!d || result.time) {/*console.log("breaking");*/
                 return;
             }
             if (this.debugging) {process.stdout.write("Line " + (index + 1) + ":");}
             if (matchRoom(d[roomCollumnIndex])) {
                 if (this.debugging) {console.log("Found a room in the room collumn for this class (collumn " + (roomCollumnIndex + 1) + "), assume it's the first lesson.");}
-                result = d[1 + leftCollumns] + " (" + (index + 1) + ". lesson)";
+                result["time"] = d[1 + leftCollumns];
+                result["lesson"] = index + 1;
             } else {
                 if (this.debugging) {console.log("Couldn't match a room in the room collumn for this class (collumn " + (roomCollumnIndex + 1) + "): '" + d[roomCollumnIndex] + "'");}
                 let concat = d[roomCollumnIndex - 2].concat(" " + d[roomCollumnIndex - 1]).concat(" " + d[roomCollumnIndex]);
@@ -208,12 +209,22 @@ module.exports = class Schedule {
                     // console.log("Match: "+subjectMatch + " evals to "+this.SUBJECTS.hasOwnProperty(subjectMatch[0]));
                     if (TEACHERS.hasOwnProperty(teacherMatch[0]) && SUBJECTS.hasOwnProperty(subjectMatch[0])) {
                         if (this.debugging) {console.log("Could find a subject and a teacher in the two preceeding collumns, assume it's the first lesson.")}
-                        result = d[1 + leftCollumns] + " (" + (index + 1) + ". lesson)";
+                        result["time"] = d[1 + leftCollumns];
+                        result["lesson"] = index + 1;
                     }
                 }
                 if (this.debugging) {console.log("Couldn't find teacher and subject either... -> '" + concat + "'");}
             }
         });
+
+        if(!result["error"]) {
+            const time = day;
+            const strTime = result["time"];
+            time.setHours(parseInt(strTime.match(/^\d+(?=:)/)[0]));
+            time.setMinutes(parseInt(strTime.match(/:(\d{2})/)[1]));
+            time.setSeconds(0);
+            result["time"] = time;
+        }
 
         return result;
     }
