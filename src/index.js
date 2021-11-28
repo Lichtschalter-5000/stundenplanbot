@@ -30,6 +30,7 @@ const converter = new CSVConverter();
                         }
                    })
               }, null, true, "Europe/Berlin"));
+             return discordBot.refreshReminder("all");
          }).catch(console.error);
 
      // registerAndStartCron(new CronJob("0 0 0 1 * *", blockSchedule().refresh, null, true, "Europe/Berlin")); no point in doing that while refresh() doesn't work yet
