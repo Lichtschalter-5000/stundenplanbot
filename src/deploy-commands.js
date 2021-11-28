@@ -48,8 +48,13 @@ const commands = [
     new SlashCommandBuilder().setName("getschedule").setDescription("You'll be happily provided with an image of the present schedule " +
         "and an URL to it as well."),
     new SlashCommandBuilder().setName("getlessonstart").setDescription("Ask me when the lessons start."),
-    new SlashCommandBuilder().setName("messageme").setDescription("Activate DMs.")
-    // new SlashCommandBuilder().setName("togglecallme").setDescription("I will call you ")
+    new SlashCommandBuilder().setName("messageme").setDescription("Activate DMs."), //ToDo maybe use subcommands, toggle messages in the evening (cfg. time) and on point etc.
+    new SlashCommandBuilder().setName("reminder").setDescription("I will send you an reminder before or after lesson start, just as you want.")
+        .addIntegerOption(opt =>
+            opt.setName("time")
+                .setDescription("Specify the time before lesson start in minutes at which I should message you.")
+                .setRequired(true)
+        )
 ]
     .map(command => command.toJSON());
 
