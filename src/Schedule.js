@@ -188,7 +188,7 @@ module.exports = class Schedule {
             console.log("Probably there were less room collumns than there should be classes, this is a thing the parser can't handle at the moment."); // ToDo
             return {error: "Found less room colllumns than there should be classes."};
         }
-        if (roomCollumnsPast !== formsTotal && this.debugging) {console.log("\nFound less room collumns than classes, that's not reassuring...");} else {console.log("");}
+        if (roomCollumnsPast !== formsTotal && this.debugging) console.log("\nFound less room collumns than classes, that's not reassuring...");
         let result = {time: undefined, lesson: undefined};
         days[day.getDay() - 1].forEach((d, index) => {
             if (!d || result.time) {/*console.log("breaking");*/

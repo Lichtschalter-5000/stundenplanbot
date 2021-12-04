@@ -269,19 +269,18 @@ module.exports = class DiscordBot {
                 // console.log(`now: ${nowTime} ; reminderTime: ${reminderTime} ; firstLessonTime: ${firstLessonTime.getTime()}`);
                 if(reminderTime.getTime() > nowTime.getTime() + 5000) {
                     // console.log(`Reminding at ${reminderTime}.`)
-                    if(!reminderJobs.hasOwnProperty(id)) {
-                        reminderJobs[id] = new CronJob(reminderTime, () => {
-                            client[db[id]["channel"]?"channels":"users"].fetch(id).then(async destination => {
-                                destination.send(`Your next lesson will start in ${db[id]["reminder"]} minutes.`)
-                                    .then(()=> {instance.refreshReminder(id);})
-                                    .catch(console.error);
-                            });
-                        }, null, true, "Europe/Berlin");
-                        process.once('SIGINT', () => reminderJobs[id].stop());
-                        process.once('SIGTERM', () => reminderJobs[id].stop());
-                    } else {
-                        reminderJobs[id].setTime(new CronTime(reminderTime));
-                    }
+                    reminderJobs[id] = new CronJob(reminderTime, () => {
+                        client[db[id]["channel"]?"channels":"users"].fetch(id).then(async destination => {
+                            // console.log("Reminding now");
+                            return destination.send(`Your next lesson will start in ${db[id]["reminder"]} minutes.`)
+                                .then(() => {reminderJobs[id].stop()})
+                                .then(() => {instance.refreshReminder(id);});
+                        }).catch(console.error);
+                    }, null, true, "Europe/Berlin");
+                    process.once('SIGINT', () => reminderJobs[id].stop());
+                    process.once('SIGTERM', () => reminderJobs[id].stop());
+
+                    // console.log("Next reminder for " + id + " on " + new Date(reminderJobs[id].nextDates(0)));
                     break;
                 }
             }
