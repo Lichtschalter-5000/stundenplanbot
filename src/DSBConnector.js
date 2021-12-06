@@ -37,14 +37,15 @@ module.exports = class DSBConnector {
                                 if (!currentId || currentId !== object["Id"]) {
                                     currentId = object["Id"];
                                     url = object["Childs"][0]["Detail"];
-                                    return true;
+                                    return Promise.resolve(true);
                                 } else {
-                                    return false;
+                                    return Promise.resolve(false);
                                 }
                             }
                         }
                     }
-                    return url = undefined;
+                    url = undefined;
+                    return Promise.resolve(undefined);
                 });
             }).finally(()=>{refreshingPromise = undefined;});
         }

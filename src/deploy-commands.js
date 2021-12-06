@@ -55,6 +55,10 @@ const commands = [
                 .setDescription("Specify the time before lesson start in minutes at which I should message you.")
                 .setRequired(true)
         )
+        .addBooleanOption(opt =>
+            opt.setName("active")
+                .setDescription("Acivate or disable reminding messages.")
+        )
 ]
     .map(command => command.toJSON());
 

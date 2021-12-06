@@ -39,8 +39,7 @@ module.exports = class DiscordBot {
         client.on('interactionCreate', interaction => {
             // if(!interaction.isCommand() && !interaction.isButton()) return;
             const id = interaction.inGuild()?interaction.channelId:interaction.user.id;
-            const isAuthed = db.hasOwnProperty(id)?db[id]["authed"]:false;
-            if(!isAuthed && !(interaction.isCommand() && interaction["commandName"] === "auth")) {
+            if(!this.isAuthed(id) && !(interaction.isCommand() && interaction["commandName"] === "auth")) {
                 interaction.reply({content: "Please authorise first: Supply the credentials for DSBMobile via /auth [username] [password]", ephemeral: true}).catch(console.error);
             } else if (interaction.isCommand()) {
                 switch (interaction["commandName"]) {
@@ -49,7 +48,7 @@ module.exports = class DiscordBot {
                         break;
                     }
                     case "auth": {
-                        if (isAuthed) {
+                        if (this.isAuthed(id)) {
                             interaction.reply({content: "You are already authorised, there's no point in doing it over and over again, cutie.", ephemeral: true}).catch(console.error);
                         } else if (interaction.options.getString("username") === DSB_USERNAME && interaction.options.getString("password") === DSB_PASSWORD) { //ToDo prevent runtime analysis and safely compare
                             const form = interaction.options.getString("form");
@@ -157,12 +156,19 @@ module.exports = class DiscordBot {
                     }
                     case "reminder": {
                         const time = parseInt(interaction.options.getInteger("time"));
+                        if(interaction.options.getBoolean("active") === false) {
+                            interaction.reply({content: "I won't remind you anymore, it's fine.", ephemeral: true})
+                                .catch(console.error);
+                            db[id]["reminder"] = false;
+                            this.updatedb();
+                            return;
+                        }
                         if(Math.abs(time) > 960) {
                             interaction.reply({content: `That's 16 hours ${time<0?"after":"before"} the lesson starts, don't you think that's a little bit too much?`, ephemeral: true})
                                 .catch(console.error);
                             return;
                         }
-                        db[id]["reminder"] = time; // ToDo disable reminder
+                        db[id]["reminder"] = time;
                         this.updatedb();
                         interaction.deferReply()
                         .then(this.refreshReminder(id))
@@ -226,7 +232,7 @@ module.exports = class DiscordBot {
     async notifyDaily() {
         for (const id in db) {
             const form = instance.getFormFromId(id);
-            if (db[id]["authed"] && form && await blockSchedule().getDayInSchedule(form, instance.getTomorrowDate())) {
+            if (this.isAuthed(id) && form && await blockSchedule().getDayInSchedule(form, instance.getTomorrowDate())) {
                 client[db[id]["channel"]?"channels":"users"].fetch(id).then(async destination => {
                     destination.send(`Tomorrow, your lessons will start at ${(await schedule().getFirstLesson(instance.getTomorrowDate(), form))["time"].toLocaleTimeString()}.`).catch(console.error);
                 });
@@ -236,9 +242,9 @@ module.exports = class DiscordBot {
 
     async notifyChange() {
         for (const id in db) {
-            const form = this.getFormFromId(id);
-            if (db[id]["authed"] && form && (await blockSchedule().getDayInSchedule(form, new Date()) || await blockSchedule().getDayInSchedule(form, instance.getTomorrowDate()))) {
-                client[db[id]["channel"]?"channels":"users"].fetch(id).then(destination =>
+            const form = instance.getFormFromId(id);
+            if (instance.isAuthed(id) && form && (await blockSchedule().getDayInSchedule(form, new Date()) || await blockSchedule().getDayInSchedule(form, instance.getTomorrowDate()))) {
+                return client[db[id]["channel"]?"channels":"users"].fetch(id).then(destination =>
                     dsbConnector().getScheduleURL().then(url => destination.send({
                         embeds: [new MessageEmbed()
                             .setColor("#40af40")
@@ -246,52 +252,71 @@ module.exports = class DiscordBot {
                             .setTitle("The current schedule")
                             .setDescription("... has been updated, so here it is in it's full glory:")
                             .setFooter(`${url}`)]
-                    }))).catch(console.error);
+                    })));
             }
         }
     }
 
-    async refreshReminder(id) {
-        if(id !== "all") {
-        const form = this.getFormFromId(id);
-        if(!form || !db[id].hasOwnProperty("reminder") || db[id]["reminder"] === false) {
-            return Promise.reject((`aborting cuz no form? ${!form} has no reminder? ${!db[id].hasOwnProperty("reminder")} reminder is false? ${db[id]["reminder"] === false}`));
-        }
+    isAuthed(id) {
+        return db.hasOwnProperty(id)?(db[id].hasOwnProperty("authed")?db[id]["authed"]:false):false;
+    }
 
-        for (let a = 0; a < 60; a++) {
+    async refreshReminder(selector) {
+        if(!(selector instanceof RegExp))
+            selector = new RegExp(selector);
+        for(let id in db){
+            if (selector.test(id.toString()) && this.isAuthed(id) && db[id].hasOwnProperty("reminder") && db[id]["reminder"]!== false) {
+            const form = this.getFormFromId(id);
+            if(!form || !db[id].hasOwnProperty("reminder") || db[id]["reminder"] === false) {
+                return Promise.reject((`aborting cuz no form? ${!form} has no reminder? ${!db[id].hasOwnProperty("reminder")} reminder is false? ${db[id]["reminder"] === false}`));
+            }
+            const offset = db[id]["reminder"];
             const nowTime = new Date();
             const day = new Date();
-            day.setDate(new Date().getDate() + a);
-            // console.log(`Looking at ${day}.`);
-            if(await blockSchedule().getDayInSchedule(form, day)) {
-                const firstLessonTime = (await schedule().getFirstLesson(day, form))["time"];
-                const reminderTime = new Date(firstLessonTime.getTime() - db[id]["reminder"] * 60000);
-                // console.log(`now: ${nowTime} ; reminderTime: ${reminderTime} ; firstLessonTime: ${firstLessonTime.getTime()}`);
-                if(reminderTime.getTime() > nowTime.getTime() + 5000) {
+            day.setDate(day.getDate() - 1);
+            for (let a = 0; a < 60; a++) {
+                day.setDate(day.getDate() + 1);
+                // console.log(`Looking at ${day}.`);
+                if(await blockSchedule().getDayInSchedule(form, day)) {
+                    const firstLessonTime = (await schedule().getFirstLesson(day, form))["time"];
+                    const reminderTime = new Date(firstLessonTime.getTime() - offset * 60000);
+                    // console.log(`now: ${nowTime} ; reminderTime: ${reminderTime} ; firstLessonTime: ${firstLessonTime.getTime()}`);
                     // console.log(`Reminding at ${reminderTime}.`)
-                    reminderJobs[id] = new CronJob(reminderTime, () => {
-                        client[db[id]["channel"]?"channels":"users"].fetch(id).then(async destination => {
-                            // console.log("Reminding now");
-                            return destination.send(`Your next lesson will start in ${db[id]["reminder"]} minutes.`)
-                                .then(() => {reminderJobs[id].stop()})
-                                .then(() => {instance.refreshReminder(id);});
-                        }).catch(console.error);
-                    }, null, true, "Europe/Berlin");
-                    process.once('SIGINT', () => reminderJobs[id].stop());
-                    process.once('SIGTERM', () => reminderJobs[id].stop());
-
+                    if(nowTime >= reminderTime)
+                        continue;
+                    if(reminderJobs.hasOwnProperty(id)) {
+                        reminderJobs[id].setTime(new CronTime(reminderTime));
+                        reminderJobs[id].start();
+                    } else {
+                        reminderJobs[id] = new CronJob(reminderTime, () => {
+                            client[db[id]["channel"]?"channels":"users"].fetch(id).then(async destination => {
+                                // console.log("Reminding now");
+                                const hours = Math.abs(Math.floor(offset / 60));
+                                const minutes = Math.abs(offset % 60);
+                                let timestring = (hours === 0 && minutes === 0?"now":(offset > 0?"in ":""))
+                                    + (hours > 0?hours + " hour" + (hours > 1?"s":"") + (minutes > 0?" and ":""):"")
+                                    + (minutes > 0?minutes + " minute" + (minutes > 1?"s":""):"");
+                                    console.log(`offset is ${offset} minutes: ${hours} hours, ${minutes} minutes, that is in ${timestring}.`);
+                                return destination.send(offset < 0 ?
+                                    `Your schoolday has started ${timestring} ago.`:
+                                    `Your next lesson will start ${timestring}.`)
+                                    .then(() => {reminderJobs[id].stop()})
+                                    .then(() => {instance.refreshReminder(id);});
+                            }).catch(console.error);
+                        }, null, true, "Europe/Berlin");
+                        process.once('SIGINT', () => reminderJobs[id].stop());
+                        process.once('SIGTERM', () => reminderJobs[id].stop());
+                    }
                     // console.log("Next reminder for " + id + " on " + new Date(reminderJobs[id].nextDates(0)));
                     break;
                 }
-            }
-        }}
-        else {
-            for(let id in db){
-                if (db[id].hasOwnProperty("reminder")) {
-                    instance.refreshReminder(id).catch(console.error);
-                }
-            }
+            }}
         }
         return Promise.resolve();
+    }
+
+    sendError(e) {
+        console.error(e);
+        // ToDo
     }
 }
