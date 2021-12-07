@@ -21,7 +21,7 @@ const converter = new CSVConverter();
               const discordBot = await require("./DiscordBot").getInstance();
               // const telegramBot = new TelegramBot();
 
-              registerAndStartCron(new CronJob("0 0 20 * * Sun-Thu", discordBot.notifyDaily, null, true, "Europe/Berlin"))//, null, true)); // for testing purposes include arguments null & true to fire event at startup
+              registerAndStartCron(new CronJob("0 0 20 * * Sun-Thu", discordBot.notifyDaily, null, true, "Europe/Berlin"));//, null, true)); // for testing purposes include arguments null & true to fire event at startup
               registerAndStartCron(new CronJob("0 0,30 6-22 * * *", () => {
                    dsbConnector().refresh().then(changed => {
                         if(changed) {
