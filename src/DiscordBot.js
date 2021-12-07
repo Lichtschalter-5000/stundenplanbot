@@ -174,7 +174,7 @@ module.exports = class DiscordBot {
                         .then(this.refreshReminder(id))
                         .then(() => {
                             interaction.editReply({
-                                content: reminderJobs[id]?"Alright. Next reminder is scheduled on " + new Date(reminderJobs[id].nextDates(0)):"Some kind of error happened, I guess? Sorry!",
+                                content: reminderJobs[id]?`Alright. Next reminder is scheduled on ${new Date(reminderJobs[id].nextDates(0))}.`:"Some kind of error happened, I guess? Sorry!",
                                 ephemeral: interaction.inGuild()
                             });
                         })
@@ -232,7 +232,7 @@ module.exports = class DiscordBot {
     async notifyDaily() {
         for (const id in db) {
             const form = instance.getFormFromId(id);
-            if (this.isAuthed(id) && form && await blockSchedule().getDayInSchedule(form, instance.getTomorrowDate())) {
+            if (instance.isAuthed(id) && form && await blockSchedule().getDayInSchedule(form, instance.getTomorrowDate())) {
                 client[db[id]["channel"]?"channels":"users"].fetch(id).then(async destination => {
                     destination.send(`Tomorrow, your lessons will start at ${(await schedule().getFirstLesson(instance.getTomorrowDate(), form))["time"].toLocaleTimeString()}.`).catch(console.error);
                 });
