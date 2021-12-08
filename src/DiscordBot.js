@@ -240,7 +240,7 @@ module.exports = class DiscordBot {
         }
     }
 
-    notifyChange() {
+   async notifyChange() {
         for (const id in db) {
             const form = instance.getFormFromId(id);
             if (instance.isAuthed(id) && form && (await blockSchedule().getDayInSchedule(form, new Date()) || await blockSchedule().getDayInSchedule(form, instance.getTomorrowDate()))) {
