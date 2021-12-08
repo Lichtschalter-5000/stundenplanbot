@@ -240,11 +240,11 @@ module.exports = class DiscordBot {
         }
     }
 
-    async notifyChange() {
+    notifyChange() {
         for (const id in db) {
             const form = instance.getFormFromId(id);
             if (instance.isAuthed(id) && form && (await blockSchedule().getDayInSchedule(form, new Date()) || await blockSchedule().getDayInSchedule(form, instance.getTomorrowDate()))) {
-                return client[db[id]["channel"]?"channels":"users"].fetch(id).then(destination =>
+                client[db[id]["channel"]?"channels":"users"].fetch(id).then(destination =>
                     dsbConnector().getScheduleURL().then(url => destination.send({
                         embeds: [new MessageEmbed()
                             .setColor("#40af40")
@@ -252,7 +252,8 @@ module.exports = class DiscordBot {
                             .setTitle("The current schedule")
                             .setDescription("... has been updated, so here it is in it's full glory:")
                             .setFooter(`${url}`)]
-                    })));
+                    })))
+                    .catch(instance.sendError);
             }
         }
     }
