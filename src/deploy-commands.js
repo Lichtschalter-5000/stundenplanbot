@@ -2,6 +2,7 @@ const { SlashCommandBuilder } = require('@discordjs/builders');
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v9');
 let { DISCORD_CLIENT, DISCORD_SERVER, DISCORD_TOKEN } = require("../Credentials");
+const log = require("npmlog");
 
 const addFormChoices = (opt =>
     opt
@@ -67,5 +68,5 @@ const rest = new REST({ version: '9' }).setToken(DISCORD_TOKEN);
 
 rest.put(Routes.applicationGuildCommands(DISCORD_CLIENT, DISCORD_SERVER), { body: commands })
 // rest.put(Routes.applicationCommands(DISCORD_CLIENT), { body: commands })
-    .then(() => console.log('Successfully registered application commands.'))
+    .then(() => log.info("CMDDeployment", "Successfully registered application commands."))
     .catch(console.error);

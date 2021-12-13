@@ -4,11 +4,26 @@ const CSVConverter = require("./CSVConverter");
 const schedule = (() => require("./Schedule").getInstance());
 // const TelegramBot = require("./TelegramBot");
 const CronJob = require("cron").CronJob;
+const log = require("npmlog");
 
 let DAY = new Date("October 20, 2021 12:00:00");
 const FORM = "121";
 
-module.exports.DEBUG = false;
+(()=>{
+    Object.defineProperty(log, 'heading', { get: () => { return `[${new Date().toLocaleTimeString(["en-GB"],
+        {
+            weekday: "short",
+            month: "numeric",
+            day: "numeric",
+            hour: "numeric",
+            minute: "numeric",
+            second: "numeric",
+            fractionalSecondDigits: 2
+        })}]`;}});
+    log.addLevel("public", 100, {"fg":"white"});
+    log.addLevel("debug", 10, {"fg":"white", "bg":"gray"});
+})();
+module.exports.log = log;
 
 const converter = new CSVConverter();
 

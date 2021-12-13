@@ -5,6 +5,7 @@ const {DSB_USERNAME, DSB_PASSWORD} = require("../Credentials");
 const schedule = (() => require("./Schedule").getInstance());
 const dsbConnector = (() => require("./DSBConnector").getInstance());
 const blockSchedule = (() => require("./BlockSchedule").getInstance());
+const log = require("./index").log;
 
 const TOKEN = require("../Credentials").DISCORD_TOKEN;
 
@@ -31,15 +32,16 @@ module.exports = class DiscordBot {
 
     async init() {
         if(++timesInitialised>1) {
-            console.error("Tried to initialise Discord Bot more than once, evil.");
+            log.warn("DiscordBot", "Tried to initialise Discord Bot more than once, evil.");
             return;
         }
         client = new Client({intents: [Intents.FLAGS.GUILDS]});
 
         client.on('interactionCreate', interaction => {
-            // if(!interaction.isCommand() && !interaction.isButton()) return;
+            log.silly("DiscordBot", `Received a new interaction of type ${interaction.type} from channel #${interaction.channel}${interaction.inGuild()?" (in a guild)":""} instantiated by @${interaction.client}.`)
             const id = interaction.inGuild()?interaction.channelId:interaction.user.id;
             if(!this.isAuthed(id) && !(interaction.isCommand() && interaction["commandName"] === "auth")) {
+                log.info("DiscordBot", `Unauthorized interaction (id ${id})`);
                 interaction.reply({content: "Please authorise first: Supply the credentials for DSBMobile via /auth [username] [password]", ephemeral: true}).catch(console.error);
             } else if (interaction.isCommand()) {
                 switch (interaction["commandName"]) {
@@ -64,15 +66,17 @@ module.exports = class DiscordBot {
                                     (interaction.inGuild()?" (you being \"y'all on this server\")":"") +
                                     " will get updates concerning form VT" + form + "!").catch(console.error);
                             }
-                        this.updatedb();
+                            console.info("DiscordBot", `Authorized a new ${interaction.inGuild()?"channel":"user"}.`)
+                            this.updatedb();
                         } else {
                             interaction.reply({content: "These credentials were not correct.", ephemeral: true}).catch(console.error);
+                            log.warn("DiscordBot", `Received wrong credentials while trying to authorise somebody: User: "${interaction.options.getString("username")}" Password: "${interaction.options.getString("password")}"`);
                         }
                         break;
                     }
                     case "getschedule": {
                         interaction.deferReply().then(() => {
-                            dsbConnector().getScheduleURL().then(url => interaction.editReply(
+                            dsbConnector().getScheduleURL().then(url => {interaction.editReply(
                                 !url?
                                     "Oh no! 😬 Either I encountered some kind of error or there's simply no schedule online.":
                                     {
@@ -82,7 +86,13 @@ module.exports = class DiscordBot {
                                             .setTitle("The current schedule")
                                             .setFooter(`${url}`)]
                                     }
-                            ))
+                            );
+                            if(url) {
+                                log.verbose("DiscordBot", `Sent out the current schedule to #${interaction.channel}.`);
+                            } else {
+                                log.warn("DiscordBot", `Could not send out the current schedule to #${interaction.channel}.`);
+                            }
+                            });
                         }).catch(console.error);
                         break;
                     }
@@ -100,6 +110,7 @@ module.exports = class DiscordBot {
                                     (interaction.inGuild()?" (you being \"y'all on this server\")":"") +
                                     " will get updates concerning form VT" + db[id]["form"] + "!");
                             }
+                            log.verbose("DiscordBot", `Set form of ${id} to "${input}"`);
                         }).catch(console.error);
                         break;
                     case "getlessonstart": {
@@ -148,8 +159,8 @@ module.exports = class DiscordBot {
                             db[interaction.user.id] = {"channel": false, "authed": true, "form": "lnk"+interaction.channelId};
                             this.updatedb();
                             client.users.fetch(interaction.user.id)
-                                .then(destination => destination.send(`Alright, I will DM you with information concerning the class configured in ${interaction.channel}`))
-                                .then(interaction.reply({content: "Ok. I sent you a message", ephemeral: true}))
+                                .then(destination => destination.send(`Alright, I will DM you with information concerning the form configured in ${interaction.channel}. (VT ${this.getFormFromId(id)})`))
+                                .then(interaction.reply({content: "Ok. I sent you a message.", ephemeral: true}))
                                 .catch(console.error);
                         }
                         break;
@@ -211,6 +222,7 @@ module.exports = class DiscordBot {
 
     updatedb() {
         fs.writeFileSync("./src/discord_db.json", JSON.stringify(db, null, "\t"));
+        log.silly("DiscordBot", "Updating Database");
     }
 
     getFormFromId(id) {
@@ -230,10 +242,12 @@ module.exports = class DiscordBot {
     }
 
     async notifyDaily() {
+        log.verbose("DiscordBot", "Sending out daily reminders.");
         for (const id in db) {
             const form = instance.getFormFromId(id);
             if (instance.isAuthed(id) && form && await blockSchedule().getDayInSchedule(form, instance.getTomorrowDate())) {
                 client[db[id]["channel"]?"channels":"users"].fetch(id).then(async destination => {
+                    log.silly(`Sending reminder to ${id} for form ${form}.`);
                     destination.send(`Tomorrow, your lessons will start at ${(await schedule().getFirstLesson(instance.getTomorrowDate(), form))["time"].toLocaleTimeString()}.`).catch(console.error);
                 });
             }
@@ -241,6 +255,7 @@ module.exports = class DiscordBot {
     }
 
    async notifyChange() {
+        console.verbose("DiscordBot", "Sending out change notifiers.");
         for (const id in db) {
             const form = instance.getFormFromId(id);
             if (instance.isAuthed(id) && form && (await blockSchedule().getDayInSchedule(form, new Date()) || await blockSchedule().getDayInSchedule(form, instance.getTomorrowDate()))) {
@@ -277,12 +292,12 @@ module.exports = class DiscordBot {
             day.setDate(day.getDate() - 1);
             for (let a = 0; a < 60; a++) {
                 day.setDate(day.getDate() + 1);
-                // console.log(`Looking at ${day}.`);
+                log.debug(`Looking at ${day}.`);
                 if(await blockSchedule().getDayInSchedule(form, day)) {
                     const firstLessonTime = (await schedule().getFirstLesson(day, form))["time"];
                     const reminderTime = new Date(firstLessonTime.getTime() - offset * 60000);
-                    // console.log(`now: ${nowTime} ; reminderTime: ${reminderTime} ; firstLessonTime: ${firstLessonTime.getTime()}`);
-                    // console.log(`Reminding at ${reminderTime}.`)
+                    log.debug(`now: ${nowTime} ; reminderTime: ${reminderTime} ; firstLessonTime: ${firstLessonTime.getTime()}`);
+                    log.verbose(`Reminding at ${reminderTime}.`)
                     if(nowTime >= reminderTime)
                         continue;
                     if(reminderJobs.hasOwnProperty(id)) {
@@ -291,13 +306,13 @@ module.exports = class DiscordBot {
                     } else {
                         reminderJobs[id] = new CronJob(reminderTime, () => {
                             client[db[id]["channel"]?"channels":"users"].fetch(id).then(async destination => {
-                                // console.log("Reminding now");
+                                log.info("Reminding now");
                                 const hours = Math.abs(Math.floor(offset / 60));
                                 const minutes = Math.abs(offset % 60);
                                 let timestring = (hours === 0 && minutes === 0?"now":(offset > 0?"in ":""))
                                     + (hours > 0?hours + " hour" + (hours > 1?"s":"") + (minutes > 0?" and ":""):"")
                                     + (minutes > 0?minutes + " minute" + (minutes > 1?"s":""):"");
-                                    console.log(`offset is ${offset} minutes: ${hours} hours, ${minutes} minutes, that is in ${timestring}.`);
+                                    log.debug(`offset is ${offset} minutes: ${hours} hours, ${minutes} minutes, that is in ${timestring}.`);
                                 return destination.send(offset < 0 ?
                                     `Your schoolday has started ${timestring} ago.`:
                                     `Your next lesson will start ${timestring}.`)
@@ -308,7 +323,7 @@ module.exports = class DiscordBot {
                         process.once('SIGINT', () => reminderJobs[id].stop());
                         process.once('SIGTERM', () => reminderJobs[id].stop());
                     }
-                    // console.log("Next reminder for " + id + " on " + new Date(reminderJobs[id].nextDates(0)));
+                    log.info("DSBConnector", "Next reminder for " + id + " on " + new Date(reminderJobs[id].nextDates(0)));
                     break;
                 }
             }}

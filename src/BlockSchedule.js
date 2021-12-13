@@ -157,7 +157,7 @@ Pfingsten,,23,06.06.2022,-,10.06.2022,,,,,,,,,,
     async getFormsAtDay(day) {
         return this.getLineOfDay(day).then(line => {
             if (line.index === -1) {
-                console.log("not included");
+                log.debug("BlockSchedule", "not included");
                 return [];
             }
             line = line["line"];
@@ -178,13 +178,13 @@ Pfingsten,,23,06.06.2022,-,10.06.2022,,,,,,,,,,
         const doit = (() => {for (let i = 0; i < this.blockSchedule.length; i++) {
             const line = this.blockSchedule[i];
             let endDate = line[5].trim().match(/(\d{2})\.(\d{2})\.(\d{4})/);
-            // console.log("Parsed end Date: "+endDate+" is "+ !!endDate);
+             log.debug("BlockSchedule", "Parsed end Date: "+endDate+" is "+ !!endDate);
             if (endDate) {
                 endDate = new Date(parseInt(endDate[3]), parseInt(endDate[2]) - 1, parseInt(endDate[1]), 24, 59, 59);
-                // console.log("converted end date "+endDate);
+                 log.debug("BlockSchedule", "converted end date "+endDate);
                 if (endDate >= day) {
                     let startDate = line[3].trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-                    // console.log("parsed start date is " + startDate);
+                     log.debug("BlockSchedule", "parsed start date is " + startDate);
                     startDate = new Date(parseInt(startDate[3]), parseInt(startDate[2]) - 1, parseInt(startDate[1]), 0, 0, 0);
                     if (startDate.getTime() <= day.getTime()) {
                         return {index: i, line: this.blockSchedule[i]};

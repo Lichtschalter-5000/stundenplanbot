@@ -1,5 +1,6 @@
 const fetch = require("make-fetch-happen");
-const Credentials = require("../Credentials")
+const Credentials = require("../Credentials");
+const log = require("./index").log;
 
 let instance, currentId, url, refreshingPromise;
 module.exports = class DSBConnector {
@@ -22,10 +23,10 @@ module.exports = class DSBConnector {
 
     async refresh() {
         if(!refreshingPromise) {
+            log.verbose("DSBConnector", "Refreshing the URL from DSBmobile");
             refreshingPromise = fetch("https://mobileapi.dsbcontrol.de/dsbdocuments?authid=" + Credentials.DSB_AUTH_TOKEN)
             .then((res) => {
                 return res.json().then((result) => {
-                    // console.log(result);
                     if (result && result.length) {
                         for (let object of result) {
                             if (object["Title"].match(/VT/)) {
@@ -37,6 +38,7 @@ module.exports = class DSBConnector {
                                 if (!currentId || currentId !== object["Id"]) {
                                     currentId = object["Id"];
                                     url = object["Childs"][0]["Detail"];
+                                    log.info("DSBConnector", "Found a new schedule on DSBMobile: %s", url);
                                     return Promise.resolve(true);
                                 } else {
                                     return Promise.resolve(false);
@@ -48,7 +50,8 @@ module.exports = class DSBConnector {
                     return Promise.resolve(undefined);
                 });
             }).finally(()=>{refreshingPromise = undefined;});
-        }
+        } else
+            log.debug("DSBConnector", "refreshingPromise is already defined, returning the existing version.")
         return refreshingPromise;
     }
 }

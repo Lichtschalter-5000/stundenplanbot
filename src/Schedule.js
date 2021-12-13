@@ -33,9 +33,7 @@ let rawSchedule;
 let instance;
 
 module.exports = class Schedule {
-    constructor() {
-        this.debugging = require("./index").DEBUG;
-    }
+    constructor() {}
 
     static getInstance() {
         if (!instance) {
@@ -56,22 +54,23 @@ module.exports = class Schedule {
 
         const subjectRegEx = /\b([DE]\b|([A-Z]([A-Za-z]{2,}|[A-HJ-Zp])))/g;
 
-        let leftCollumnsSum = 0
+        let leftCollumnsSum = 0;
+        log.info("Schedule", "Parsing the Schedule.");
         for (let line of rawSchedule) {
             for (let i = 0; i < line.length; line++) {
                 if (i > 3) break;
                 let cell = line[i];
-                // console.log("cell reads '" + cell+"'");
+                log.debug("Schedule", "cell reads '" + cell+"'");
                 cell = cell.match(/^\d+$/) || "0";
                 if (cell && parseInt(cell[0])) {
-                    // console.log("Matches " + cell+", parseInt: "+ parseInt(cell[0]));
+                    log.debug("Schedule", "Matches " + cell+", parseInt: "+ parseInt(cell[0]));
                     break;
                 }
                 leftCollumnsSum++;
             }
         }
         const leftCollumns = Math.round(leftCollumnsSum / rawSchedule.length);
-        if (this.debugging) { console.log("Found " + leftCollumns + " collumns to the left."); }
+        log.debug("Schedule", "Found " + leftCollumns + " collumns to the left.");
         let days = [[]];
         let collumns = [[]];
         let daysIn = 0;
@@ -79,7 +78,7 @@ module.exports = class Schedule {
         let lineNumber = 0;
         for (let i = 0; i < rawSchedule.length; i++) {
             const line = rawSchedule[i];
-            // console.log("reading line " + line);
+            log.debug("Schedule", "reading line " + line);
             let firstCell = line[leftCollumns].match(/^\d$/);
             if (firstCell) {
                 firstCell = parseInt(firstCell[0]);
@@ -87,10 +86,10 @@ module.exports = class Schedule {
                     days[++daysIn] = [];
                     lineNumber = 0;
                 }
-                // console.log("We're "+daysIn+" days in; First cell reads: "+firstCell);
+                log.debug("Schedule", "We're "+daysIn+" days in; First cell reads: "+firstCell);
                 days[daysIn][lineNumber++] = line;
                 for (let j = 2 + leftCollumns; j < line.length - 1; j++) {
-                    //console.log("j="+(j-2)+" i="+(i-topRows));
+                    log.debug("Schedule", "j="+(j-2)+" i="+(i-topRows));
                     if (i - topRows === 0) {
                         collumns[j - 2] = [];
                     }
@@ -159,9 +158,9 @@ module.exports = class Schedule {
         // let entriesDeviationAvg = entriesDeviationSum / entriesDeviation.length;
         // for (let i = 0; i < entries.length; i++) {
         //     // check for emptyness, flawed: if(Math.abs(entriesAvg - entries[i]) > 2.0 * entriesDeviationAvg) {
-        //     console.log("collumn " + i + ": ");
-        //     console.log(collumns[i]);
-        //     console.log("\nIs empty? " +
+        //     log.debug("Schedule", "collumn " + i + ": ");
+        //     log.debug(collumns[i]);
+        //     log.debug("Schedule", "\nIs empty? " +
         //         (Math.abs(entriesAvg - entries[i]) > 2.0 * entriesDeviationAvg) + "\nCollumn Type is: " +
         //         // check collumn Type: (collumnType[i].teacher > collumnType[i].subject?"teacher":(collumnType[i].teacher > collumnType[i].room?"teacher":(collumnType[i].subject > collumnType[i].room?"subject":"room"))) + "\n" +
         //         // Math.max(collumnType[i].teacher, collumnType[i].subject, collumnType[i].room));
@@ -169,9 +168,9 @@ module.exports = class Schedule {
 
         let formsTotal = await blockSchedule().getFormsAtDay(day);
         const indexOfForm = formsTotal.indexOf(form);
-        if (this.debugging) {console.log(`Found ${formsTotal.length} (${formsTotal}) forms for ${day}, form ${form} should be the ${indexOfForm + 1}. form from the left.`);}
+        log.debug(`Found ${formsTotal.length} (${formsTotal}) forms for ${day}, form ${form} should be the ${indexOfForm + 1}. form from the left.`);
         formsTotal = formsTotal.length;
-        // console.log(blockSchedule().getFormsAtDay(day) + " " + form);
+         log.debug(blockSchedule().getFormsAtDay(day) + " " + form);
 
         let roomCollumnIndex; //ToDo one room collumn spread over two adjacent collumns
         let roomCollumnsPast = 0;
@@ -185,35 +184,36 @@ module.exports = class Schedule {
             }
         });
         if (!roomCollumnIndex) {
-            console.log("Probably there were less room collumns than there should be classes, this is a thing the parser can't handle at the moment."); // ToDo
+            log.error("Probably there were less room collumns than there should be classes, this is a thing the parser can't handle at the moment."); // ToDo
             return {error: "Found less room colllumns than there should be classes."};
         }
-        if (roomCollumnsPast !== formsTotal && this.debugging) console.log("\nFound less room collumns than classes, that's not reassuring...");
+        if (roomCollumnsPast !== formsTotal)
+            log.debug("Schedule", "\nFound less room collumns than classes, that's not reassuring...");
         let result = {time: undefined, lesson: undefined};
         days[day.getDay() - 1].forEach((d, index) => {
-            if (!d || result.time) {/*console.log("breaking");*/
+            if (!d || result.time) {/*log.debug("Schedule", "breaking");*/
                 return;
             }
             if (this.debugging) {process.stdout.write("Line " + (index + 1) + ":");}
             if (matchRoom(d[roomCollumnIndex])) {
-                if (this.debugging) {console.log("Found a room in the room collumn for this class (collumn " + (roomCollumnIndex + 1) + "), assume it's the first lesson.");}
+                log.debug("Schedule", "Found a room in the room collumn for this class (collumn " + (roomCollumnIndex + 1) + "), assume it's the first lesson.");
                 result["time"] = d[1 + leftCollumns];
                 result["lesson"] = index + 1;
             } else {
-                if (this.debugging) {console.log("Couldn't match a room in the room collumn for this class (collumn " + (roomCollumnIndex + 1) + "): '" + d[roomCollumnIndex] + "'");}
+                log.debug("Schedule", "Couldn't match a room in the room collumn for this class (collumn " + (roomCollumnIndex + 1) + "): '" + d[roomCollumnIndex] + "'");
                 let concat = d[roomCollumnIndex - 2].concat(" " + d[roomCollumnIndex - 1]).concat(" " + d[roomCollumnIndex]);
                 let teacherMatch = concat.replace(/\bKI\b/, "Kl").match(teacherRegEx);
                 let subjectMatch = concat.match(subjectRegEx);
                 if (teacherMatch && subjectMatch) { // ToDo better matching (like for collumns)
-                    // console.log("Match: "+teacherMatch + " evals to "+this.TEACHERS.hasOwnProperty(teacherMatch[0]));
-                    // console.log("Match: "+subjectMatch + " evals to "+this.SUBJECTS.hasOwnProperty(subjectMatch[0]));
+                     log.debug("Schedule", "Match: "+teacherMatch + " evals to "+this.TEACHERS.hasOwnProperty(teacherMatch[0]));
+                     log.debug("Schedule", "Match: "+subjectMatch + " evals to "+this.SUBJECTS.hasOwnProperty(subjectMatch[0]));
                     if (TEACHERS.hasOwnProperty(teacherMatch[0]) && SUBJECTS.hasOwnProperty(subjectMatch[0])) {
-                        if (this.debugging) {console.log("Could find a subject and a teacher in the two preceeding collumns, assume it's the first lesson.")}
+                        log.debug("Schedule", "Could find a subject and a teacher in the two preceeding collumns, assume it's the first lesson.");
                         result["time"] = d[1 + leftCollumns];
                         result["lesson"] = index + 1;
                     }
                 }
-                if (this.debugging) {console.log("Couldn't find teacher and subject either... -> '" + concat + "'");}
+                log.debug("Schedule", "Couldn't find teacher and subject either... -> '" + concat + "'");
             }
         });
 
@@ -225,6 +225,8 @@ module.exports = class Schedule {
             time.setSeconds(0);
             result["time"] = time;
         }
+
+        log.debug("Schedule", "Result: "+JSON.stringify(result));
 
         return result;
     }
