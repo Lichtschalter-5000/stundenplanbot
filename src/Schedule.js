@@ -1,5 +1,8 @@
 // const testParserData = require("../test_data/testData").testParserData;
+// noinspection JSUnresolvedFunction
+
 const blockSchedule = (() => require("./BlockSchedule").getInstance());
+const log = require("./index").log;
 
 const TEACHERS = {
     "Sk": "Schwenkert",
@@ -45,6 +48,11 @@ module.exports = class Schedule {
     setSchedule(schedule) {rawSchedule = schedule;}
 
     async getFirstLesson(day, form) {
+        if(!rawSchedule)
+            return Promise.reject("No schedule to parse for a first lesson.");
+        if(!(await blockSchedule().getDayInSchedule(form, day)))
+            return Promise.reject(`${day} isn't in the schedule of form VT${form}, actually.`);
+
         const teacherRegEx = /\b[A-Z][a-zI]s?\b/;
 
         function matchRoom(a) {
@@ -89,7 +97,6 @@ module.exports = class Schedule {
                 log.debug("Schedule", "We're "+daysIn+" days in; First cell reads: "+firstCell);
                 days[daysIn][lineNumber++] = line;
                 for (let j = 2 + leftCollumns; j < line.length - 1; j++) {
-                    log.debug("Schedule", "j="+(j-2)+" i="+(i-topRows));
                     if (i - topRows === 0) {
                         collumns[j - 2] = [];
                     }
@@ -159,7 +166,7 @@ module.exports = class Schedule {
         // for (let i = 0; i < entries.length; i++) {
         //     // check for emptyness, flawed: if(Math.abs(entriesAvg - entries[i]) > 2.0 * entriesDeviationAvg) {
         //     log.debug("Schedule", "collumn " + i + ": ");
-        //     log.debug(collumns[i]);
+        //     log.debug("Schedule", collumns[i]);
         //     log.debug("Schedule", "\nIs empty? " +
         //         (Math.abs(entriesAvg - entries[i]) > 2.0 * entriesDeviationAvg) + "\nCollumn Type is: " +
         //         // check collumn Type: (collumnType[i].teacher > collumnType[i].subject?"teacher":(collumnType[i].teacher > collumnType[i].room?"teacher":(collumnType[i].subject > collumnType[i].room?"subject":"room"))) + "\n" +
@@ -168,54 +175,54 @@ module.exports = class Schedule {
 
         let formsTotal = await blockSchedule().getFormsAtDay(day);
         const indexOfForm = formsTotal.indexOf(form);
-        log.debug(`Found ${formsTotal.length} (${formsTotal}) forms for ${day}, form ${form} should be the ${indexOfForm + 1}. form from the left.`);
+        log.debug("Schedule", `Found ${formsTotal.length} (${formsTotal}) forms for ${day}, form ${form} should be the ${indexOfForm + 1}. form from the left.`);
+        log.debug("Schedule", formsTotal + " " + form);
         formsTotal = formsTotal.length;
-         log.debug(blockSchedule().getFormsAtDay(day) + " " + form);
 
         let roomCollumnIndex; //ToDo one room collumn spread over two adjacent collumns
         let roomCollumnsPast = 0;
         collumnType.forEach((val, index) => {
-            if (this.debugging) {process.stdout.write("\nCollumn " + (index + 1) + " has " + val.room + " room entries of " + val.sum + " total ")}
+            log.debug("Schedule", `Collumn ${index + 1} has ${val.room} room entries of ${val.sum} total.`);
             if (val.room > 0.15 * val.sum) {
-                if (this.debugging) {process.stdout.write("(let's count this as a room-collumn).");}
+                log.debug("Schedule", "(let's count this as a room-collumn).");
                 if (roomCollumnsPast++ === indexOfForm && !roomCollumnIndex) {
                     roomCollumnIndex = index + 2;
                 }
             }
         });
         if (!roomCollumnIndex) {
-            log.error("Probably there were less room collumns than there should be classes, this is a thing the parser can't handle at the moment."); // ToDo
+            log.error("Schedule", "Probably there were less room collumns than there should be classes, this is a thing the parser can't handle at the moment."); // ToDo
             return {error: "Found less room colllumns than there should be classes."};
         }
         if (roomCollumnsPast !== formsTotal)
             log.debug("Schedule", "\nFound less room collumns than classes, that's not reassuring...");
-        let result = {time: undefined, lesson: undefined};
+        let result = {error: `Found nothing to indicate there's lessons at all at the given day ${day}.`};
         days[day.getDay() - 1].forEach((d, index) => {
-            if (!d || result.time) {/*log.debug("Schedule", "breaking");*/
+            if (!d || result.hasOwnProperty("time")) {/*log.debug("Schedule", "breaking");*/
                 return;
             }
-            if (this.debugging) {process.stdout.write("Line " + (index + 1) + ":");}
+            log.debug("Schedule", "Line " + (index + 1) + ":");
             if (matchRoom(d[roomCollumnIndex])) {
                 log.debug("Schedule", "Found a room in the room collumn for this class (collumn " + (roomCollumnIndex + 1) + "), assume it's the first lesson.");
-                result["time"] = d[1 + leftCollumns];
-                result["lesson"] = index + 1;
+                result = {time: d[1 + leftCollumns], lesson: index + 1};
             } else {
                 log.debug("Schedule", "Couldn't match a room in the room collumn for this class (collumn " + (roomCollumnIndex + 1) + "): '" + d[roomCollumnIndex] + "'");
                 let concat = d[roomCollumnIndex - 2].concat(" " + d[roomCollumnIndex - 1]).concat(" " + d[roomCollumnIndex]);
                 let teacherMatch = concat.replace(/\bKI\b/, "Kl").match(teacherRegEx);
                 let subjectMatch = concat.match(subjectRegEx);
                 if (teacherMatch && subjectMatch) { // ToDo better matching (like for collumns)
-                     log.debug("Schedule", "Match: "+teacherMatch + " evals to "+this.TEACHERS.hasOwnProperty(teacherMatch[0]));
-                     log.debug("Schedule", "Match: "+subjectMatch + " evals to "+this.SUBJECTS.hasOwnProperty(subjectMatch[0]));
+                     log.debug("Schedule", "Match: "+teacherMatch + " evals to "+TEACHERS.hasOwnProperty(teacherMatch[0]));
+                     log.debug("Schedule", "Match: "+subjectMatch + " evals to "+SUBJECTS.hasOwnProperty(subjectMatch[0]));
                     if (TEACHERS.hasOwnProperty(teacherMatch[0]) && SUBJECTS.hasOwnProperty(subjectMatch[0])) {
                         log.debug("Schedule", "Could find a subject and a teacher in the two preceeding collumns, assume it's the first lesson.");
-                        result["time"] = d[1 + leftCollumns];
-                        result["lesson"] = index + 1;
+                        result = {time: d[1 + leftCollumns], lesson: index + 1};
                     }
                 }
-                log.debug("Schedule", "Couldn't find teacher and subject either... -> '" + concat + "'");
+                log.debug("Schedule", `Couldn't find teacher and subject either... -> '${concat}'`);
             }
         });
+
+        log.debug("Schedule", "Result: "+JSON.stringify(result));
 
         if(!result["error"]) {
             const time = day;
@@ -224,9 +231,9 @@ module.exports = class Schedule {
             time.setMinutes(parseInt(strTime.match(/:(\d{2})/)[1]));
             time.setSeconds(0);
             result["time"] = time;
+        } else {
+            return Promise.reject(result["error"]);
         }
-
-        log.debug("Schedule", "Result: "+JSON.stringify(result));
 
         return result;
     }

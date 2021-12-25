@@ -1,12 +1,14 @@
+// noinspection JSUnresolvedFunction
+
 const fetch = require("make-fetch-happen");
 const Credentials = require("../Credentials");
-const log = require("./index").log;
+const {log, handleError} = require("./index");
 
 let instance, currentId, url, refreshingPromise;
 module.exports = class DSBConnector {
 
     constructor() {
-        this.refresh().catch(console.error);
+        this.refresh().catch(e => handleError(e, "DSBConnector"));
     }
 
     static getInstance() {
@@ -23,7 +25,7 @@ module.exports = class DSBConnector {
 
     async refresh() {
         if(!refreshingPromise) {
-            log.verbose("DSBConnector", "Refreshing the URL from DSBmobile");
+            log.verbose("DSBConnector", "Refreshing the URL from DSBmobile.");
             refreshingPromise = fetch("https://mobileapi.dsbcontrol.de/dsbdocuments?authid=" + Credentials.DSB_AUTH_TOKEN)
             .then((res) => {
                 return res.json().then((result) => {
@@ -47,11 +49,11 @@ module.exports = class DSBConnector {
                         }
                     }
                     url = undefined;
-                    return Promise.resolve(undefined);
+                    return Promise.reject("Could not find an URL for the Schedule.");
                 });
             }).finally(()=>{refreshingPromise = undefined;});
         } else
-            log.debug("DSBConnector", "refreshingPromise is already defined, returning the existing version.")
+            log.debug("DSBConnector", "refreshingPromise is already defined, returning the existing version.");
         return refreshingPromise;
     }
 }

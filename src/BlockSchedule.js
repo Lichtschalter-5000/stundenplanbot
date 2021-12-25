@@ -1,15 +1,18 @@
+// noinspection JSUnresolvedFunction
+
 const fetch = require("make-fetch-happen");
 const util = require("util");
 const cheerio = require("cheerio");
 const exec = util.promisify(require("child_process").exec);
 const fs = require("fs");
 const tmp = require("tmp");
+const {log, handleError} = require("./index");
 
 let instance, currentUrl, blockSchedule, refreshingPromise;
 
 module.exports = class BlockSchedule {
     constructor() {
-        this.refresh().catch(console.error);
+        this.refresh().catch(e => handleError(e, "BlockSchedule"));
     }
 
     static getInstance() {
