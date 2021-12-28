@@ -1,17 +1,9 @@
 // noinspection JSUnresolvedFunction,JSCheckFunctionSignatures
 
-const dsbConnector = (() => require("./DSBConnector").getInstance());
-const blockSchedule = (() => require("./BlockSchedule").getInstance());
-const CSVConverter = require("./CSVConverter");
-const schedule = (() => require("./Schedule").getInstance());
-// const TelegramBot = require("./TelegramBot");
 const CronJob = require("cron").CronJob;
 const log = require("npmlog");
 const Stream = require("stream");
 const fs = require("fs");
-
-let DAY = new Date("October 20, 2021 12:00:00");
-const FORM = "121";
 
 Object.defineProperty(log, 'heading', { get: () => { return `[${new Date().toLocaleTimeString(["en-GB"],
     {
@@ -41,6 +33,16 @@ log.stream._write = (chunk, encoding, next) => {
     next();
 };
 
+function registerAndStartCron(job) {
+    job.start();
+    process.once('SIGINT', () => job.stop());
+    process.once('SIGTERM', () => job.stop());
+}
+
+function handleError(e, loc) {
+    log.error(loc?loc:"Unknown src.", "Error thrown: "+e);
+}
+
 registerAndStartCron(new CronJob("10 0 0 * * *", () => {
     if (filestream) {
         filestream.write(`It's ${Date()}, ending today's logfile. Byeee!\n`);
@@ -66,7 +68,7 @@ registerAndStartCron(new CronJob("10 0 0 * * *", () => {
         }
     });
 
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, {recursive:true});
 
     filestream = fs.createWriteStream(path, {flags: "a"});
     process.once('SIGINT', () => filestream.end());
@@ -77,14 +79,21 @@ registerAndStartCron(new CronJob("10 0 0 * * *", () => {
 }, null, true, "Europe/Berlin", null, true));
 
 module.exports.log = log;
-
 module.exports.handleError = handleError;
+module.exports.registerAndStartCron = registerAndStartCron;
+
+const dsbConnector = (() => require("./DSBConnector").getInstance());
+const blockSchedule = (() => require("./BlockSchedule").getInstance());
+const CSVConverter = require("./CSVConverter");
+const schedule = (() => require("./Schedule").getInstance());
+// const TelegramBot = require("./TelegramBot");
 
 const converter = new CSVConverter();
+const cache = require("./Cache");
 
-
-(async () => {
-     dsbConnector().getScheduleURL().then(url => blockSchedule().refresh()
+     cache.init()
+         .then(() => dsbConnector().getScheduleURL())
+         .then(url => blockSchedule().refresh()
          .then(() => CSVConverter.convert(url)))
          .then(result => schedule().setSchedule(result))
          .finally(async () => {
@@ -92,7 +101,8 @@ const converter = new CSVConverter();
              // const telegramBot = new TelegramBot();
 
              registerAndStartCron(new CronJob("0 0 20 * * Sun-Thu", discordBot.notifyDaily, null, true, "Europe/Berlin"));//, null, true)); // for testing purposes include arguments null & true to fire event at startup
-             registerAndStartCron(new CronJob("0 0,30 6-22 * * *", () =>
+             registerAndStartCron(new CronJob("0 25,55 5-21 * * *", () =>
+                 setTimeout(() => {
                  dsbConnector().refresh().then(changed => {
                      if (changed) {
                          return dsbConnector().getScheduleURL()
@@ -101,19 +111,9 @@ const converter = new CSVConverter();
                              .finally(discordBot.notifyChange);
                      } else
                          return Promise.resolve();
-                 }).catch(e => handleError(e, "index")), null, true, "Europe/Berlin"));
+                 }).catch(e => handleError(e, "index"))}, Math.random()*10*60*1000), null, true, "Europe/Berlin"));
              registerAndStartCron(new CronJob("20 0 3 * * *", () => discordBot.refreshReminder(".*"), null, true, "Europe/Berlin", null, true));
          }).catch(e => handleError(e, "index"));
 
-     // registerAndStartCron(new CronJob("0 0 0 1 * *", blockSchedule().refresh, null, true, "Europe/Berlin")); no point in doing that while refresh() doesn't work yet
-})();
 
-function registerAndStartCron(job) {
-     job.start();
-     process.once('SIGINT', () => job.stop());
-     process.once('SIGTERM', () => job.stop());
-}
-
-function handleError(e, loc) {
-    log.error(loc?loc:"Unknown src.", "Error thrown: "+e);
-}
+     // registerAndStartCron(new CronJob("0 0 0 1 * *", () => setTimeout(blockSchedule().refresh,Math.random()*24*60*60*1000) , null, true, "Europe/Berlin")); no point in doing that while refresh() doesn't work yet
