@@ -99,16 +99,16 @@ const cache = require("./Cache");
          .finally(async () => {
              const discordBot = await require("./DiscordBot").getInstance();
              // const telegramBot = new TelegramBot();
-
+             discordBot.notifyChange(new Date()).catch(e => handleError(e, "index"));
              registerAndStartCron(new CronJob("0 0 20 * * Sun-Thu", discordBot.notifyDaily, null, true, "Europe/Berlin"));//, null, true)); // for testing purposes include arguments null & true to fire event at startup
              registerAndStartCron(new CronJob("0 25,55 5-21 * * *", () =>
                  setTimeout(() => {
-                 dsbConnector().refresh().then(changed => {
+                 dsbConnector().refresh().then(([changed, time]) => {
                      if (changed) {
                          return dsbConnector().getScheduleURL()
                              .then(url => CSVConverter.convert(url))
-                             .then(schedule().setSchedule)
-                             .finally(discordBot.notifyChange);
+                             .then(() => schedule().setSchedule)
+                             .then(time => discordBot.notifyChange(time));
                      } else
                          return Promise.resolve();
                  }).catch(e => handleError(e, "index"))}, Math.random()*10*60*1000), null, true, "Europe/Berlin"));

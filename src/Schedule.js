@@ -51,7 +51,7 @@ module.exports = class Schedule {
         if(!rawSchedule)
             return Promise.reject("No schedule to parse for a first lesson.");
         if(!(await blockSchedule().getDayInSchedule(form, day)))
-            return Promise.reject(`${day} isn't in the schedule of form VT${form}, actually.`);
+            return Promise.reject(`${day.toLocaleTimeString()} isn't in the schedule of form VT${form}, actually.`);
 
         const teacherRegEx = /\b[A-Z][a-zI]s?\b/;
 

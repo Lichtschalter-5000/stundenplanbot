@@ -32,18 +32,15 @@ module.exports = class DSBConnector {
                     if (result && result.length) {
                         for (let object of result) {
                             if (object["Title"].match(/VT/)) {
-                                /* No point in using the Date if we can also use the ID.
-                                 * const d = object["Date"].match(/^(\d{2}).(\d{2}).(\d{4})\s(\d{2}):(\d{2})$/);
-                                 * const date = new Date(d[3], parseInt(d[2]) - 1, d[1], d[5], d[6]);
-                                 * if(lastDate instanceof Date && lastDate < date) {}
-                                 */
+                                 const d = object["Date"].match(/^(\d{2}).(\d{2}).(\d{4})\s(\d{2}):(\d{2})$/);
+                                 const date = new Date(d[3], parseInt(d[2]) - 1, d[1], d[5], d[6]);
                                 if (!currentId || currentId !== object["Id"]) {
                                     currentId = object["Id"];
                                     url = object["Childs"][0]["Detail"];
                                     log.info("DSBConnector", "Found a new schedule on DSBMobile: %s", url);
-                                    return Promise.resolve(true);
+                                    return Promise.resolve([true, date]);
                                 } else {
-                                    return Promise.resolve(false);
+                                    return Promise.resolve([false, undefined]);
                                 }
                             }
                         }

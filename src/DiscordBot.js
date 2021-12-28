@@ -1,4 +1,4 @@
-const {Client, Intents, MessageEmbed, MessageActionRow, MessageButton} = require("discord.js");
+const {Client, Intents, MessageEmbed, MessageActionRow, MessageButton, MessageAttachment} = require("discord.js");
 const fs = require("fs");
 const {CronJob, CronTime} = require("cron");
 const {DSB_USERNAME, DSB_PASSWORD} = require("../Credentials");
@@ -256,21 +256,24 @@ module.exports = class DiscordBot {
         }
     }
 
-    async notifyChange() {
+    async notifyChange(timeOfChange) {
         log.verbose("DiscordBot", "Sending out change notifiers.");
         for (const id in db) {
             const form = instance.getFormFromId(id);
             if (instance.isAuthed(id) && form && (await blockSchedule().getDayInSchedule(form, new Date()) || await blockSchedule().getDayInSchedule(form, instance.getTomorrowDate()))) {
                 client[db[id]["channel"]?"channels":"users"].fetch(id).then(destination =>
-                    dsbConnector().getScheduleURL().then(url => destination.send({
-                        embeds: [new MessageEmbed()
-                            .setColor("#40af40")
-                            .setImage(`${url}`)
-                            .setTitle("The current schedule")
-                            .setDescription("... has been updated, so here it is in it's full glory:")
-                            .setFooter(`${url}`)]
-                    })))
-                    .catch(instance.sendError);
+                    dsbConnector().getScheduleURL().then(url =>
+                        fetch(url).then(result =>
+                            destination.send({
+                                embeds: [new MessageEmbed()
+                                    .setColor("#40af40")
+                                    .setImage("attachment://img.png")
+                                    .setTitle("The current schedule")
+                                    .setDescription(`... has been updated${timeOfChange?" at "+timeOfChange.toLocaleTimeString(["en-GB"], {hour: "2-digit", minute: "2-digit"}):""}, so here it is in it's full glory:`)
+                                    .setFooter(`${url}`)],
+                                files: [new MessageAttachment(result.blob(), "img.png")]
+                            }))))
+                    .catch(e => handleError(e, "DiscordBot"));
             }
         }
     }
