@@ -52,7 +52,7 @@ module.exports = class DiscordBot {
                     case "auth": {
                         if (this.isAuthed(id)) {
                             interaction.reply({content: "You are already authorised, there's no point in doing it over and over again, cutie.", ephemeral: true}).catch(e => handleError(e, "DiscordBot"));
-                        } else if (interaction.options.getString("username") === DSB_USERNAME && interaction.options.getString("password") === DSB_PASSWORD) { //ToDo prevent runtime analysis and safely compare
+                        } else if (interaction.options.getString("username") === DSB_USERNAME && interaction.options.getString("password") === DSB_PASSWORD) { //prevent runtime analysis and safely compare - in theory...
                             const form = interaction.options.getString("form");
                             interaction.reply({content: "Great, you are authorised now!", ephemeral: true}).catch(e => handleError(e, "DiscordBot"));
                             if (db.hasOwnProperty(id)) {
@@ -61,10 +61,13 @@ module.exports = class DiscordBot {
                                 db[id] = {"channel": interaction.inGuild(), "authed": true};
                             }
                             if (form) {
+                                if(!form.match(/\d{3}/)[0]) {
+                                    log.error("DiscordBot", `/auth: ${form} is not a valid form`);
+                                    break;
+                                }
                                 db[id]["form"] = form;
-                                interaction.followUp("Alrighty, from now on, you" +
-                                    (interaction.inGuild()?" (you being \"y'all on this server\")":"") +
-                                    " will get updates concerning form VT" + form + "!").catch(e => handleError(e, "DiscordBot"));
+                                interaction.followUp(`Alrighty, from now on, ${interaction.inGuild()?"you":"this server"} will get updates concerning form VT${db[id]["form"]}!`)
+                                    .catch(e => handleError(e, "DiscordBot"));
                             }
                             console.info("DiscordBot", `Authorized a new ${interaction.inGuild()?"channel":"user"}.`)
                             this.updatedb();
@@ -106,9 +109,7 @@ module.exports = class DiscordBot {
                             } else {
                                 db[id]["form"] = input;
                                 this.updatedb();
-                                return interaction.editReply("Alrighty, from now on, you" +
-                                    (interaction.inGuild()?" (you being \"y'all on this server\")":"") +
-                                    " will get updates concerning form VT" + db[id]["form"] + "!");
+                                return interaction.editReply(`Alrighty, from now on, ${interaction.inGuild()?"you":"this server"} will get updates concerning form VT${db[id]["form"]}!`);
                             }
 
                         })

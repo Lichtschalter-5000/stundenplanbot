@@ -150,6 +150,8 @@ Pfingsten,,23,06.06.2022,-,10.06.2022,,,,,,,,,,
     async getDayInSchedule(form, day) {
         if(form) {
             form = form.match(/\d{3}/)[0];
+            if(!form)
+                return Promise.reject(`"${form}" is not a valid form.`);
             const formIndex = 7 + (parseInt(form[0]) - 1) * 3 + parseInt(form[1]) - 1;
             return this.getLineOfDay(day).then(lineofday => lineofday["index"] !== -1 && !!lineofday["line"][formIndex]);
         } else {
@@ -178,6 +180,8 @@ Pfingsten,,23,06.06.2022,-,10.06.2022,,,,,,,,,,
     }
 
     async getLineOfDay(day) {
+        if(!(day instanceof Date))
+            return Promise.reject("day is not a valid (instance of) Date");
         const doit = (() => {for (let i = 0; i < this.blockSchedule.length; i++) {
             const line = this.blockSchedule[i];
             let endDate = line[5].trim().match(/(\d{2})\.(\d{2})\.(\d{4})/);
@@ -216,6 +220,8 @@ Pfingsten,,23,06.06.2022,-,10.06.2022,,,,,,,,,,
     }
 
     static getCurrentSchoolYear(date = new Date()) {
+        if(!(date instanceof Date))
+            return Promise.reject("day is not a valid (instance of) Date");
         // assert 21st century
         const year = date.getFullYear();
         if(date.getMonth() <= 7) {//August
