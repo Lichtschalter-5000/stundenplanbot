@@ -309,7 +309,6 @@ module.exports = class DiscordBot {
                     }
                     const reminderTime = new Date(firstLessonTime.getTime() - offset * 60000);
                     log.debug("DiscordBot", `now: ${nowTime} ; reminderTime: ${reminderTime} ; firstLessonTime: ${firstLessonTime.getTime()}`);
-                    log.verbose("DiscordBot", `Reminding at ${reminderTime}.`)
                     if(nowTime >= reminderTime)
                         continue;
                     if(reminderJobs.hasOwnProperty(id)) {
@@ -318,7 +317,7 @@ module.exports = class DiscordBot {
                     } else {
                         reminderJobs[id] = new CronJob(reminderTime, () => {
                             client[db[id]["channel"]?"channels":"users"].fetch(id).then(async destination => {
-                                log.info("DiscordBot", "Reminding now");
+                                log.info("DiscordBot", `Reminding ${id} now.`);
                                 const hours = Math.abs(Math.floor(offset / 60));
                                 const minutes = Math.abs(offset % 60);
                                 let timestring = (hours === 0 && minutes === 0?"now":(offset > 0?"in ":""))
@@ -343,16 +342,4 @@ module.exports = class DiscordBot {
         return Promise.resolve();
     }
 
-    sendError(e) {
-        log.verbose("DiscordBot", "Sending out error message:");
-        for (const id in db) {
-            if (instance.isAuthed(id) && db[id]["error"]) {
-                client[db[id]["channel"]?"channels":"users"].fetch(id).then(destination =>
-                    destination.send({
-                        message: "Encountered the following error: "+e
-                    }))
-                    .catch(log.error);
-            }
-        }
-    }
 }
